@@ -1,0 +1,24 @@
+{
+	"schemaVersion": 1,
+	"id": "nomiss",
+	"version": "${version}",
+	"name": "No Miss",
+	"description": "Cancels left-click swings with a sword, axe or mace unless something is actually in reach under your crosshair.",
+	"authors": [
+		"You"
+	],
+	"license": "CC0-1.0",
+	"icon": "assets/nomiss/icon.png",
+	"environment": "client",
+	"mixins": [
+		{
+			"config": "nomiss.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": ">=26.2 <26.4",
+		"java": ">=25"
+	}
+}
