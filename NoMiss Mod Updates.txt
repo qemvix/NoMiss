@@ -1,0 +1,13 @@
+1.1.2 — Weapon selection and HUD improvements
+- Your idea: weapon categories. Select “All swords” in Weapon 1 to cover every sword tier using one slot. Include categories such as spears and axes, alongside individual-item selections.
+- HUD customization: choose the indicator’s corner, size, and opacity.
+- Protected-item indicator: optionally show whether your held item is protected.
+- Import/export settings: share configurations or move them between installations.
+- Exact-item protection: optionally protect only a particular item stack, such as your named sword, instead of every item of that type.
+1.2 — Profiles and deeper customization
+- Per-weapon rules: give each selected item or category its own cooldown and block-breaking settings.
+- Saved profiles and presets: separate setups for PvP, survival, and modpacks, with a rebindable profile-switching shortcut.
+- Automatic server profiles: optionally remember and load your chosen profile for each server.
+- Expanded category support: recognize compatible modded weapons in groups such as “All swords.”
+- Redesigned settings menu: separate General, Weapons, Profiles, and HUD pages.
+All new shortcuts would be rebindable, and visual indicators would have their own toggles. This is a proposed roadmap; nothing is being built yet.
