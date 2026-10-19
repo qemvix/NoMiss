@@ -1,6 +1,7 @@
 package com.nomiss.client.mixin;
 
 import com.nomiss.client.NoMissClient;
+import com.nomiss.client.NoMissHud;
 import com.nomiss.config.AttackProtection;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.component.DataComponents;
@@ -41,7 +42,9 @@ public abstract class MinecraftMixin {
                 target = AttackProtection.Target.MISS;
             }
         }
-        if (AttackProtection.shouldCancel(config, itemId, target, client.player.getAttackStrengthScale(0.0F))) {
+        var reason = AttackProtection.blockedReason(config, itemId, target, client.player.getAttackStrengthScale(0.0F));
+        if (reason != null) {
+            NoMissHud.blocked(reason);
             cir.setReturnValue(false);
         }
     }
@@ -54,6 +57,7 @@ public abstract class MinecraftMixin {
             || client.gameMode == null || client.hitResult == null || client.player.isSpectator()) return;
         String itemId = BuiltInRegistries.ITEM.getKey(client.player.getMainHandItem().getItem()).toString();
         if (config.contains(itemId) && client.hitResult.getType() == HitResult.Type.BLOCK) {
+            NoMissHud.blocked(AttackProtection.BlockReason.BLOCKS_DISABLED);
             client.gameMode.stopDestroyBlock();
             ci.cancel();
         }

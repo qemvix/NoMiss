@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.LinkedHashSet;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,19 +29,44 @@ public final class NoMissConfig {
         "minecraft:golden_spear", "minecraft:iron_spear", "minecraft:diamond_spear", "minecraft:netherite_spear",
         "minecraft:mace");
 
-    private boolean enabled = true;
-    private boolean allowBlockBreaking = true;
-    private boolean blockDuringCooldown = false;
+    public enum Option {
+        ENABLED("enabled", "nomiss.enabled", true),
+        COOLDOWN("blockDuringCooldown", "nomiss.cooldown", false),
+        BLOCKS("allowBlockBreaking", "nomiss.blocks", true),
+        STATUS("showStatus", "nomiss.status", true),
+        BLOCKED_HINTS("showBlockedAttacks", "nomiss.hints", false);
+
+        public final String jsonKey;
+        public final String translationKey;
+        public final boolean defaultValue;
+        Option(String jsonKey, String translationKey, boolean defaultValue) {
+            this.jsonKey = jsonKey;
+            this.translationKey = translationKey;
+            this.defaultValue = defaultValue;
+        }
+    }
+
+    public enum AddResult { ADDED, ALREADY_SELECTED, FULL, INVALID }
+    private final EnumMap<Option, Boolean> options = new EnumMap<>(Option.class);
     private final List<String> slots = new ArrayList<>(Collections.nCopies(MAX_ITEMS, ""));
 
-    public NoMissConfig() { resetItems(); }
+    public NoMissConfig() {
+        for (Option option : Option.values()) resetOption(option);
+        resetItems();
+    }
 
-    public boolean enabled() { return enabled; }
-    public void setEnabled(boolean value) { enabled = value; }
-    public boolean allowBlockBreaking() { return allowBlockBreaking; }
-    public void setAllowBlockBreaking(boolean value) { allowBlockBreaking = value; }
-    public boolean blockDuringCooldown() { return blockDuringCooldown; }
-    public void setBlockDuringCooldown(boolean value) { blockDuringCooldown = value; }
+    public boolean option(Option option) { return options.get(option); }
+    public void setOption(Option option, boolean value) { options.put(option, value); }
+    public void resetOption(Option option) { setOption(option, option.defaultValue); }
+
+    public boolean enabled() { return option(Option.ENABLED); }
+    public void setEnabled(boolean value) { setOption(Option.ENABLED, value); }
+    public boolean allowBlockBreaking() { return option(Option.BLOCKS); }
+    public void setAllowBlockBreaking(boolean value) { setOption(Option.BLOCKS, value); }
+    public boolean blockDuringCooldown() { return option(Option.COOLDOWN); }
+    public void setBlockDuringCooldown(boolean value) { setOption(Option.COOLDOWN, value); }
+    public boolean showStatus() { return option(Option.STATUS); }
+    public boolean showBlockedAttacks() { return option(Option.BLOCKED_HINTS); }
     public Set<String> items() {
         var result = new LinkedHashSet<>(slots);
         result.remove("");
@@ -57,6 +83,15 @@ public final class NoMissConfig {
         return true;
     }
 
+    /** Never replaces an existing slot, including an unavailable modded item. */
+    public AddResult addHeldItem(String id) {
+        if (id == null || !ITEM_ID.matcher(id).matches() || id.equals("minecraft:air")) return AddResult.INVALID;
+        if (contains(id)) return AddResult.ALREADY_SELECTED;
+        int slot = slots.indexOf("");
+        if (slot < 0) return AddResult.FULL;
+        return setItem(slot, id) ? AddResult.ADDED : AddResult.INVALID;
+    }
+
     public void clearItems() { Collections.fill(slots, ""); }
     public void resetItems() {
         clearItems();
@@ -67,15 +102,15 @@ public final class NoMissConfig {
         NoMissConfig config = new NoMissConfig();
         if (!Files.exists(path)) {
             // Migrate the old sentinel once; subsequent toggles use the JSON setting.
-            config.enabled = !Files.exists(path.resolveSibling("nomiss.off"));
+            config.setEnabled(!Files.exists(path.resolveSibling("nomiss.off")));
             return config;
         }
         try (var reader = Files.newBufferedReader(path)) {
             JsonObject json = GSON.fromJson(reader, JsonObject.class);
             if (json == null) throw new JsonParseException("Empty config");
-            if (json.has("enabled")) config.enabled = readBoolean(json, "enabled");
-            if (json.has("allowBlockBreaking")) config.allowBlockBreaking = readBoolean(json, "allowBlockBreaking");
-            if (json.has("blockDuringCooldown")) config.blockDuringCooldown = readBoolean(json, "blockDuringCooldown");
+            for (Option option : Option.values()) {
+                if (json.has(option.jsonKey)) config.setOption(option, readBoolean(json, option.jsonKey));
+            }
             if (json.has("items")) {
                 if (!json.get("items").isJsonArray()) throw new JsonParseException("items must be an array");
                 config.clearItems();
@@ -107,9 +142,7 @@ public final class NoMissConfig {
         Path temp = Files.createTempFile(path.toAbsolutePath().getParent(), "nomiss-", ".tmp");
         try {
             JsonObject json = new JsonObject();
-            json.addProperty("enabled", enabled);
-            json.addProperty("allowBlockBreaking", allowBlockBreaking);
-            json.addProperty("blockDuringCooldown", blockDuringCooldown);
+            for (Option option : Option.values()) json.addProperty(option.jsonKey, option(option));
             json.add("items", GSON.toJsonTree(slots));
             Files.writeString(temp, GSON.toJson(json) + System.lineSeparator());
             try {

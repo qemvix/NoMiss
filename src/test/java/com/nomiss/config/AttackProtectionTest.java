@@ -41,4 +41,26 @@ class AttackProtectionTest {
         config.setItem(19, "");
         assertFalse(AttackProtection.shouldCancel(config, "example:weapon", MISS, 1));
     }
+
+    @Test void explanationsMatchTheActualRuleAndDoNotDependOnDisplaySettings() {
+        var config = new NoMissConfig();
+        config.setBlockDuringCooldown(true);
+        assertEquals(AttackProtection.BlockReason.OUT_OF_REACH,
+            AttackProtection.blockedReason(config, "minecraft:mace", MISS, 0));
+        assertEquals(AttackProtection.BlockReason.COOLDOWN,
+            AttackProtection.blockedReason(config, "minecraft:mace", ENTITY, 0));
+        assertNull(AttackProtection.blockedReason(config, "minecraft:mace", BLOCK, 0));
+        config.setAllowBlockBreaking(false);
+        assertEquals(AttackProtection.BlockReason.BLOCKS_DISABLED,
+            AttackProtection.blockedReason(config, "minecraft:mace", BLOCK, 0));
+        for (boolean status : new boolean[]{true, false}) {
+            config.setOption(NoMissConfig.Option.STATUS, status);
+            config.setOption(NoMissConfig.Option.BLOCKED_HINTS, !status);
+            assertTrue(AttackProtection.shouldCancel(config, "minecraft:mace", MISS, 0));
+            assertFalse(AttackProtection.shouldCancel(config, "minecraft:mace", ENTITY, 1));
+        }
+        assertNull(AttackProtection.blockedReason(config, "minecraft:diamond_axe", MISS, 0));
+        config.setEnabled(false);
+        assertNull(AttackProtection.blockedReason(config, "minecraft:mace", MISS, 0));
+    }
 }

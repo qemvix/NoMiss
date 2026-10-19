@@ -7,6 +7,8 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import com.mojang.blaze3d.platform.InputConstants;
@@ -23,6 +25,8 @@ public final class NoMissClient implements ClientModInitializer {
     private static boolean canSave = true;
     public static KeyMapping openMenuKey;
     public static KeyMapping toggleKey;
+    public static KeyMapping addHeldKey;
+    public static KeyMapping toggleStatusKey;
 
     @Override
     public void onInitializeClient() {
@@ -46,13 +50,28 @@ public final class NoMissClient implements ClientModInitializer {
         // uses SDL scancodes. Resolve persistent key names through the running game instead.
         openMenuKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.nomiss.menu", InputConstants.getKey("key.keyboard.semicolon").getValue(), category));
         toggleKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.nomiss.toggle", InputConstants.getKey("key.keyboard.apostrophe").getValue(), category));
+        addHeldKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.nomiss.add_held", InputConstants.UNKNOWN.getValue(), category));
+        toggleStatusKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.nomiss.toggle_status", InputConstants.UNKNOWN.getValue(), category));
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            NoMissHud.tick(client);
             // Drain clicks even in menus: typing in chat/search must never toggle the mod later.
             while (toggleKey.consumeClick()) {
                 if (client.player != null && client.gui.screen() == null) {
                     config.setEnabled(!config.enabled());
                     boolean saved = saveConfig();
                     client.player.sendOverlayMessage(saved ? enabledLabel() : Component.translatable("nomiss.save_failed"));
+                }
+            }
+            while (addHeldKey.consumeClick()) {
+                if (client.player != null && client.gui.screen() == null) client.player.sendOverlayMessage(addHeldItem());
+            }
+            while (toggleStatusKey.consumeClick()) {
+                if (client.player != null && client.gui.screen() == null) {
+                    config.setOption(NoMissConfig.Option.STATUS, !config.showStatus());
+                    boolean saved = saveConfig();
+                    client.player.sendOverlayMessage(saved ? Component.translatable("nomiss.status",
+                        Component.translatable(config.showStatus() ? "options.on" : "options.off"))
+                        : Component.translatable("nomiss.save_failed"));
                 }
             }
             while (openMenuKey.consumeClick()) {
@@ -62,6 +81,21 @@ public final class NoMissClient implements ClientModInitializer {
     }
 
     public static NoMissConfig config() { return config; }
+
+    public static Component addHeldItem() {
+        var player = Minecraft.getInstance().player;
+        if (player == null) return Component.translatable("nomiss.add_held.no_world");
+        var held = player.getMainHandItem();
+        if (held.isEmpty()) return Component.translatable("nomiss.add_held.empty");
+        String id = BuiltInRegistries.ITEM.getKey(held.getItem()).toString();
+        return switch (config.addHeldItem(id)) {
+            case ADDED -> saveConfig() ? Component.translatable("nomiss.add_held.added", held.getHoverName(), config.slotOf(id) + 1)
+                : Component.translatable("nomiss.save_failed");
+            case ALREADY_SELECTED -> Component.translatable("nomiss.already_selected", config.slotOf(id) + 1);
+            case FULL -> Component.translatable("nomiss.limit", NoMissConfig.MAX_ITEMS);
+            case INVALID -> Component.translatable("nomiss.add_held.empty");
+        };
+    }
 
     public static boolean saveConfig() {
         if (!canSave) return false;

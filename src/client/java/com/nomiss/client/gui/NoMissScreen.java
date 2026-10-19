@@ -12,6 +12,7 @@ import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarratableEntry;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.options.controls.KeyBindsScreen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -24,6 +25,7 @@ public final class NoMissScreen extends Screen {
     private SlotList slots;
     private boolean saveFailed;
     private int contentWidth;
+    private Component feedback;
 
     public NoMissScreen(Screen parent) {
         super(Component.translatable("nomiss.settings"));
@@ -36,21 +38,17 @@ public final class NoMissScreen extends Screen {
         contentWidth = Math.min(440, width - 24);
         int left = (width - contentWidth) / 2;
         int half = (contentWidth - 8) / 2;
-        addRenderableWidget(Button.builder(NoMissClient.enabledLabel(), button -> {
-            config.setEnabled(!config.enabled()); save(); button.setMessage(NoMissClient.enabledLabel());
-        }).bounds(left, 30, contentWidth, 20).tooltip(Tooltip.create(Component.translatable("nomiss.enabled.tooltip"))).build());
-        addRenderableWidget(Button.builder(optionLabel("nomiss.cooldown", config.blockDuringCooldown()), button -> {
-            config.setBlockDuringCooldown(!config.blockDuringCooldown()); save();
-            button.setMessage(optionLabel("nomiss.cooldown", config.blockDuringCooldown()));
-        }).bounds(left, 54, half, 20).tooltip(Tooltip.create(Component.translatable("nomiss.cooldown.tooltip"))).build());
-        addRenderableWidget(Button.builder(optionLabel("nomiss.blocks", config.allowBlockBreaking()), button -> {
-            config.setAllowBlockBreaking(!config.allowBlockBreaking()); save();
-            button.setMessage(optionLabel("nomiss.blocks", config.allowBlockBreaking()));
-        }).bounds(left + half + 8, 54, half, 20).tooltip(Tooltip.create(Component.translatable("nomiss.blocks.tooltip"))).build());
-        slots = addRenderableWidget(new SlotList(minecraft, contentWidth, Math.max(32, height - 156), 96));
+        slots = addRenderableWidget(new SlotList(minecraft, contentWidth, Math.max(32, height - 138), 54));
         slots.setX(left);
+        for (var option : NoMissConfig.Option.values()) slots.addOption(option);
+        slots.addKeyBinds();
         for (int i = 0; i < NoMissConfig.MAX_ITEMS; i++) slots.addSlot(i);
         slots.setScrollAmount(scroll);
+        var addHeld = addRenderableWidget(Button.builder(Component.translatable("nomiss.add_held"), button -> {
+            feedback = NoMissClient.addHeldItem(); rebuildWidgets();
+        }).bounds(left, height - 76, contentWidth, 20)
+            .tooltip(Tooltip.create(Component.translatable(minecraft.player == null ? "nomiss.add_held.no_world" : "nomiss.add_held.tooltip"))).build());
+        addHeld.active = minecraft.player != null;
         addRenderableWidget(Button.builder(Component.translatable("nomiss.defaults"), button -> {
             config.resetItems(); save(); rebuildWidgets();
         }).bounds(left, height - 52, half, 20).build());
@@ -61,30 +59,77 @@ public final class NoMissScreen extends Screen {
             .bounds(left, height - 28, contentWidth, 20).build());
     }
 
-    private void save() { saveFailed = !NoMissClient.saveConfig(); }
-
-    private Component optionLabel(String key, boolean value) {
-        return Component.translatable(key, Component.translatable(value ? "options.on" : "options.off"));
-    }
+    private void save() { feedback = null; saveFailed = !NoMissClient.saveConfig(); }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         super.extractRenderState(graphics, mouseX, mouseY, delta);
         graphics.textRenderer().accept(TextAlignment.CENTER, width / 2, 12, title);
-        graphics.textRenderer().accept(TextAlignment.CENTER, width / 2, 81, saveFailed
+        graphics.textRenderer().acceptScrollingWithDefaultCenter(saveFailed
             ? Component.translatable("nomiss.save_failed")
-            : Component.translatable("nomiss.count", config.items().size(), NoMissConfig.MAX_ITEMS));
+            : feedback != null ? feedback : Component.translatable("nomiss.count", config.items().size(), NoMissConfig.MAX_ITEMS),
+            (width - contentWidth) / 2, (width + contentWidth) / 2, 30, 50);
     }
 
     @Override public void onClose() { minecraft.gui.setScreen(parent); }
 
-    private final class SlotList extends ContainerObjectSelectionList<SlotEntry> {
+    private final class SlotList extends ContainerObjectSelectionList<SettingsEntry> {
         private SlotList(Minecraft client, int width, int height, int top) { super(client, width, height, top, 30); }
         private void addSlot(int slot) { addEntry(new SlotEntry(slot)); }
+        private void addOption(NoMissConfig.Option option) { addEntry(new OptionEntry(option)); }
+        private void addKeyBinds() { addEntry(new KeyBindsEntry()); }
         @Override public int getRowWidth() { return getWidth() - 16; }
     }
 
-    private final class SlotEntry extends ContainerObjectSelectionList.Entry<SlotEntry> {
+    private abstract class SettingsEntry extends ContainerObjectSelectionList.Entry<SettingsEntry> {}
+
+    private final class OptionEntry extends SettingsEntry {
+        private final Button toggle;
+        private final Button reset;
+
+        private OptionEntry(NoMissConfig.Option option) {
+            toggle = Button.builder(label(option), button -> {
+                config.setOption(option, !config.option(option)); save();
+                button.setMessage(label(option)); updateReset(option);
+            }).bounds(0, 0, 100, 22).tooltip(Tooltip.create(Component.translatable(option.translationKey + ".tooltip"))).build();
+            reset = Button.builder(Component.translatable("controls.reset"), button -> {
+                config.resetOption(option); save(); toggle.setMessage(label(option)); button.active = false;
+            }).bounds(0, 0, 52, 22).tooltip(Tooltip.create(Component.translatable("nomiss.reset.tooltip"))).build();
+            reset.active = config.option(option) != option.defaultValue;
+        }
+
+        private void updateReset(NoMissConfig.Option option) { reset.active = config.option(option) != option.defaultValue; }
+
+        private Component label(NoMissConfig.Option option) {
+            return Component.translatable(option.translationKey, Component.translatable(config.option(option) ? "options.on" : "options.off"));
+        }
+
+        @Override public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float delta) {
+            toggle.setX(getContentX()); toggle.setY(getContentY()); toggle.setWidth(getContentWidth() - 56);
+            reset.setX(getContentRight() - 52); reset.setY(getContentY());
+            toggle.extractRenderState(graphics, mouseX, mouseY, delta); reset.extractRenderState(graphics, mouseX, mouseY, delta);
+        }
+        @Override public List<? extends GuiEventListener> children() { return List.of(toggle, reset); }
+        @Override public List<? extends NarratableEntry> narratables() { return List.of(toggle, reset); }
+        @Override public void visitWidgets(java.util.function.Consumer<net.minecraft.client.gui.components.AbstractWidget> visitor) {
+            visitor.accept(toggle); visitor.accept(reset);
+        }
+    }
+
+    private final class KeyBindsEntry extends SettingsEntry {
+        private final Button button = Button.builder(Component.translatable("nomiss.keybinds"), button ->
+            minecraft.gui.setScreen(new KeyBindsScreen(NoMissScreen.this, minecraft.options))).bounds(0, 0, 100, 22)
+            .tooltip(Tooltip.create(Component.translatable("nomiss.keybinds.tooltip"))).build();
+        @Override public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float delta) {
+            button.setX(getContentX()); button.setY(getContentY()); button.setWidth(getContentWidth());
+            button.extractRenderState(graphics, mouseX, mouseY, delta);
+        }
+        @Override public List<? extends GuiEventListener> children() { return List.of(button); }
+        @Override public List<? extends NarratableEntry> narratables() { return List.of(button); }
+        @Override public void visitWidgets(java.util.function.Consumer<net.minecraft.client.gui.components.AbstractWidget> visitor) { visitor.accept(button); }
+    }
+
+    private final class SlotEntry extends SettingsEntry {
         private final Button select;
         private final Button clear;
         private final ItemStack stack;

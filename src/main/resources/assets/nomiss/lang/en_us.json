@@ -25,5 +25,22 @@
   "nomiss.clear_slot": "Clear weapon %s",
   "nomiss.picker": "Select item for weapon %s",
   "nomiss.picker.hint": "Choose an item to protect from wasted attacks.",
-  "nomiss.already_selected": "Already selected as weapon %s. Clear that slot to move it."
+  "nomiss.already_selected": "Already selected as weapon %s. Clear that slot to move it.",
+  "nomiss.status": "Show NoMiss status: %s",
+  "nomiss.status.tooltip": "Show NoMiss ON/OFF in the upper-left corner while playing. Independent of blocked-attack messages. Hidden with F1.",
+  "nomiss.hints": "Explain blocked attacks: %s",
+  "nomiss.hints.tooltip": "Briefly show why a click was blocked: out of reach, cooldown, or block breaking disabled. Does not change attack protection.",
+  "nomiss.blocked.reach": "NoMiss: Out of reach / no entity targeted",
+  "nomiss.blocked.cooldown": "NoMiss: Cooldown",
+  "nomiss.blocked.blocks": "NoMiss: Block breaking disabled",
+  "nomiss.reset.tooltip": "Restore only this setting to its default. Your item selections and other options stay as they are.",
+  "nomiss.add_held": "Add held item",
+  "nomiss.add_held.tooltip": "Add your main-hand item to the first empty weapon slot. Existing selections are never replaced.",
+  "nomiss.add_held.no_world": "Join a world to add your held item.",
+  "nomiss.add_held.empty": "Hold an item in your main hand first.",
+  "nomiss.add_held.added": "Added %s to weapon %s.",
+  "nomiss.keybinds": "Key binds…",
+  "nomiss.keybinds.tooltip": "Change NoMiss shortcuts in Minecraft’s Key Binds menu, under NoMiss. New shortcuts are unbound by default.",
+  "key.nomiss.add_held": "Add held item to NoMiss",
+  "key.nomiss.toggle_status": "Show/hide NoMiss status"
 }

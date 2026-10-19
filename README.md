@@ -13,16 +13,24 @@ Put `nomiss-1.1.1.jar` in your `mods` folder with **Fabric Loader 0.19.5+** and 
 - **Accessibility Settings → NoMiss: ON/OFF** toggles the entire mod. The adjacent **NoMiss Settings** button opens its options.
 - **`;` / `:`** (the semicolon key) opens settings while playing.
 - **`'`** (apostrophe) toggles the mod while playing and shows its new state above the hotbar.
-- Both shortcuts can be changed under **Options → Controls → Key Binds → NoMiss**. They do not activate while typing in chat or other menus.
+- **Add held item** and **Show/hide NoMiss status** have optional shortcuts, unbound by default.
+- All four shortcuts can be changed under **Options → Controls → Key Binds → NoMiss**. They do not activate while typing in chat or other menus. The settings screen also has a **Key binds…** button that opens that menu.
 
 Settings has **Weapon 1–20** slots, like Minecraft's keybind list. Each **Select item…** button opens a searchable picker with item icons, display names and registry IDs. Vanilla and installed mod items appear automatically. Click an item to assign it; **×** clears a slot. Each item type can occupy one slot. All variants with the same item ID (including enchanted/custom-named stacks) use that slot.
 
 Defaults protect all seven sword variants, all seven spear variants, and the mace. Axes can be selected manually. **Default items** restores these 15 selections without resetting other options; **Clear selection** empties all slots.
 
-Two additional settings are available:
+Additional settings are available:
 
 - **Wait for cooldown: OFF** by default. When enabled, selected items may attack entities only when attack strength is fully recharged. Blocked clicks are discarded; this never queues or automatically performs attacks.
 - **Allow block breaking: ON** by default. When disabled, selected items require an entity target, including when holding left-click on blocks.
+
+- **Show NoMiss status: ON** by default. A small ON/OFF indicator appears in the upper-left corner while playing. Its menu toggle and optional shortcut hide only the indicator; attack protection is independent.
+- **Explain blocked attacks: OFF** by default. Briefly shows **Out of reach / no entity targeted**, **Cooldown**, or **Block breaking disabled** after a blocked click. This option is independent of the status indicator. Both indicators respect F1 and hide in menus.
+
+Each setting has its own **Reset** button. It restores only that setting's default without changing other options, weapon slots, or keybinds. Reset shortcuts separately in Minecraft's Key Binds menu.
+
+**Add held item** adds your main-hand item to the first empty weapon slot. It works with vanilla and modded items, never replaces a selection, and explains if your hand is empty, the item is already selected, or all 20 slots are full. Join a world to use it from the menu or assign its optional shortcut.
 
 Changes apply and save immediately to `config/nomiss.json`. Empty slots and modded item IDs are retained across restarts. Unknown items remain visible in their slots so they can be cleared. Invalid JSON is backed up to `nomiss.broken-<timestamp>.json` before defaults are used. An existing `config/nomiss.off` file is migrated only when the JSON config does not yet exist.
 

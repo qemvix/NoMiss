@@ -4,11 +4,16 @@ package com.nomiss.config;
 public final class AttackProtection {
     private AttackProtection() {}
     public enum Target { MISS, BLOCK, ENTITY }
+    public enum BlockReason { OUT_OF_REACH, COOLDOWN, BLOCKS_DISABLED }
+
+    public static BlockReason blockedReason(NoMissConfig config, String itemId, Target target, float attackStrength) {
+        if (!config.enabled() || !config.contains(itemId)) return null;
+        if (target == Target.BLOCK) return config.allowBlockBreaking() ? null : BlockReason.BLOCKS_DISABLED;
+        if (target != Target.ENTITY) return BlockReason.OUT_OF_REACH;
+        return config.blockDuringCooldown() && attackStrength < 1.0F ? BlockReason.COOLDOWN : null;
+    }
 
     public static boolean shouldCancel(NoMissConfig config, String itemId, Target target, float attackStrength) {
-        if (!config.enabled() || !config.contains(itemId)) return false;
-        if (target == Target.BLOCK && config.allowBlockBreaking()) return false;
-        if (target != Target.ENTITY) return true;
-        return config.blockDuringCooldown() && attackStrength < 1.0F;
+        return blockedReason(config, itemId, target, attackStrength) != null;
     }
 }

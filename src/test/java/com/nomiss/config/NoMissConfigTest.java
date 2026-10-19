@@ -94,4 +94,51 @@ class NoMissConfigTest {
         assertFalse(config.enabled()); assertTrue(config.blockDuringCooldown());
         assertEquals(new NoMissConfig().items(), config.items());
     }
+
+    @Test void newIndicatorsPersistAndOlderConfigsKeepTheirSelections() throws IOException {
+        Path path = directory.resolve("nomiss.json");
+        Files.writeString(path, "{\"enabled\":false,\"blockDuringCooldown\":true,\"items\":[\"custom:weapon\"]}");
+        var config = NoMissConfig.load(path);
+        assertFalse(config.enabled()); assertTrue(config.blockDuringCooldown());
+        assertTrue(config.showStatus()); assertFalse(config.showBlockedAttacks());
+        assertEquals("custom:weapon", config.itemAt(0));
+        config.setOption(NoMissConfig.Option.STATUS, false);
+        config.setOption(NoMissConfig.Option.BLOCKED_HINTS, true);
+        config.save(path);
+        var loaded = NoMissConfig.load(path);
+        assertFalse(loaded.showStatus()); assertTrue(loaded.showBlockedAttacks());
+        assertFalse(loaded.enabled()); assertTrue(loaded.blockDuringCooldown());
+        assertEquals(config.items(), loaded.items());
+    }
+
+    @Test void resettingOneOptionPreservesEveryOtherOptionAndAllSlots() throws IOException {
+        for (var selected : NoMissConfig.Option.values()) {
+            var config = new NoMissConfig();
+            config.setItem(19, "custom:keep_me");
+            var beforeItems = config.items();
+            for (var option : NoMissConfig.Option.values()) config.setOption(option, !option.defaultValue);
+            config.resetOption(selected);
+            Path path = directory.resolve("nomiss.json"); config.save(path);
+            var loaded = NoMissConfig.load(path);
+            for (var option : NoMissConfig.Option.values()) {
+                assertEquals(option == selected ? option.defaultValue : !option.defaultValue, loaded.option(option));
+            }
+            assertEquals(beforeItems, loaded.items());
+        }
+    }
+
+    @Test void quickAddUsesFirstHoleAndNeverOverwritesOrDuplicates() {
+        var config = new NoMissConfig();
+        config.setItem(2, "");
+        assertEquals(NoMissConfig.AddResult.ADDED, config.addHeldItem("custom:held"));
+        assertEquals("custom:held", config.itemAt(2));
+        assertEquals(NoMissConfig.AddResult.ALREADY_SELECTED, config.addHeldItem("custom:held"));
+        for (int i = 15; i < 20; i++) assertTrue(config.setItem(i, "custom:item_" + i));
+        var fullSelection = config.items();
+        assertEquals(NoMissConfig.AddResult.FULL, config.addHeldItem("custom:extra"));
+        assertEquals(NoMissConfig.AddResult.ALREADY_SELECTED, config.addHeldItem("minecraft:mace"));
+        for (String id : new String[]{null, "", "Bad ID", "minecraft:air"})
+            assertEquals(NoMissConfig.AddResult.INVALID, config.addHeldItem(id));
+        assertEquals(fullSelection, config.items());
+    }
 }

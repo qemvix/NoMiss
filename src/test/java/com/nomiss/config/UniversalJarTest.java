@@ -76,6 +76,8 @@ class UniversalJarTest {
             assertEquals(10, root.getAsJsonArray("jars").size());
             assertNotNull(jar.getEntry("com/nomiss/client/gui/NoMissScreen.class"));
             assertNotNull(jar.getEntry("com/nomiss/client/gui/ItemPickerScreen.class"));
+            assertNotNull(jar.getEntry("com/nomiss/client/NoMissHud.class"));
+            assertNotNull(jar.getEntry("com/nomiss/client/mixin/HudMixin.class"));
         }
     }
 }
