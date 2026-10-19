@@ -1,12 +1,12 @@
 # NoMiss
 
-Client-side Fabric mod for **Minecraft 26.3**. Prevent wasted left-click attacks with the items you choose: an entity must be under your crosshair and within the weapon's reach. Other items behave like vanilla.
+Client-side Fabric mod for **Minecraft 26.2 and 26.3**. Prevent wasted left-click attacks with the items you choose: an entity must be under your crosshair and within the weapon's reach. Other items behave like vanilla.
 
 ## Install
 
-Put `nomiss-1.1.0.jar` in your `mods` folder with **Fabric Loader 0.19.5+** and **Java 25**. Remove older NoMiss JARs first. The small Fabric API modules used by NoMiss are bundled; a separate Fabric API download is not required.
+Put `nomiss-1.1.1.jar` in your `mods` folder with **Fabric Loader 0.19.5+** and **Java 25**. Remove older NoMiss JARs first. The small Fabric API modules used by NoMiss are bundled; a separate Fabric API download is not required.
 
-[Mod Menu](https://modrinth.com/mod/modmenu) 21.0.0+ is optional. When installed, its NoMiss configuration button opens the same settings screen.
+[Mod Menu](https://modrinth.com/mod/modmenu) is optional: use a 26.2-compatible Mod Menu build (20.0.3+) on Minecraft 26.2, or a 26.3-compatible build (21.0.0+) on Minecraft 26.3. When installed, its NoMiss configuration button opens the same settings screen.
 
 ## Settings and shortcuts
 
@@ -34,11 +34,15 @@ Requires JDK 25. From the checkout:
 bash gradlew build
 ```
 
-The finished mod is `build/libs/nomiss-1.1.0.jar`, without the `-sources` suffix. `bash gradlew test` runs configuration and attack-rule regression tests.
+The finished mod is `build/libs/nomiss-1.1.1.jar`, without the `-sources` suffix. `bash gradlew test` runs configuration, attack-rule, and universal JAR packaging tests.
 
 ```sh
-bash gradlew runClient                  # test without Mod Menu
-bash gradlew runClient -PwithModMenu    # test with Mod Menu
+bash gradlew runClient                                   # Minecraft 26.2
+bash gradlew runClient -PwithModMenu                     # 26.2 with Mod Menu
+bash gradlew runClient -Pminecraft_version=26.3          # Minecraft 26.3
+bash gradlew runClient -Pminecraft_version=26.3 -PwithModMenu
 ```
 
-The default build targets Minecraft 26.3; this release does not claim compatibility with 26.2. No server mod is required. NoMiss leaves vanilla attacks, damage, weapon reach and server rules in control.
+The default development target is Minecraft 26.2. Both build targets produce the same universal packaging for 26.2 and 26.3. The JAR bundles the required Fabric library builds for each Minecraft version, plus dependency markers that select the correct set automatically. No server mod is required. NoMiss leaves vanilla attacks, damage, weapon reach and server rules in control.
+
+For compatibility checks, build once and install that exact JAR into both Minecraft profiles. Rebuilding separately for each game can hide binary differences. Keyboard defaults resolve persistent key names at runtime because 26.2 uses GLFW keycodes and 26.3 uses SDL scancodes.

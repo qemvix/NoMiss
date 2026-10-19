@@ -42,8 +42,10 @@ public final class NoMissClient implements ClientModInitializer {
         }
         saveConfig();
         KeyMapping.Category category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("nomiss", "controls"));
-        openMenuKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.nomiss.menu", InputConstants.KEY_SEMICOLON, category));
-        toggleKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.nomiss.toggle", InputConstants.KEY_APOSTROPHE, category));
+        // Numeric key constants are inlined by javac, but 26.2 uses GLFW codes and 26.3
+        // uses SDL scancodes. Resolve persistent key names through the running game instead.
+        openMenuKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.nomiss.menu", InputConstants.getKey("key.keyboard.semicolon").getValue(), category));
+        toggleKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.nomiss.toggle", InputConstants.getKey("key.keyboard.apostrophe").getValue(), category));
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             // Drain clicks even in menus: typing in chat/search must never toggle the mod later.
             while (toggleKey.consumeClick()) {

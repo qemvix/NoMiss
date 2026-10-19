@@ -23,26 +23,93 @@ loom {
 	}
 }
 
-dependencies {
-	// To change the versions see the gradle.properties file
-	minecraft "com.mojang:minecraft:${project.minecraft_version}"
-	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+// Compile the shared code against the selected development target. Ship both library sets:
+// a tiny, Minecraft-specific dependency marker makes Fabric select a matching set at runtime.
+def compatibilityTargets = [
+    '26.2': [fabricApi: '0.161.0+26.2', modMenu: '20.0.3'],
+    '26.3': [fabricApi: '0.164.0+26.3', modMenu: '21.0.0']
+]
+def developmentTarget = compatibilityTargets[project.minecraft_version]
+if (developmentTarget == null) {
+    throw new GradleException("Supported development targets are 26.2 and 26.3")
+}
+def bundledModules = ['fabric-api-base', 'fabric-key-mapping-api-v1', 'fabric-lifecycle-events-v1', 'fabric-resource-loader-v1']
 
-	// Bundle just the input, lifecycle and resource hooks we use; no separate Fabric API install is needed.
-	for (module in ['fabric-api-base', 'fabric-key-mapping-api-v1', 'fabric-lifecycle-events-v1', 'fabric-resource-loader-v1']) {
-		implementation include(fabricApi.module(module, project.fabric_api_version))
-	}
-	compileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
-	if (project.hasProperty('withModMenu')) {
-		runtimeOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
-	}
-	testImplementation platform('org.junit:junit-bom:5.14.0')
-	testImplementation 'org.junit.jupiter:junit-jupiter'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+compatibilityTargets.each { minecraftVersion, target ->
+    def suffix = minecraftVersion.replace('.', '_')
+    def bundle = configurations.create("bundledFabric${suffix}") {
+        canBeConsumed = false
+        transitive = false
+    }
+    def requirements = [minecraft: minecraftVersion, nomiss: ">=${project.version}"]
+    bundledModules.each { module ->
+        def dependency = fabricApi.module(module, target.fabricApi)
+        dependencies.add(bundle.name, dependency)
+        requirements[module] = "=" + dependency.toString().split(':', 3)[2]
+    }
+    // Separate configurations keep Gradle from collapsing the two module versions into one.
+    tasks.named('jar', Jar) {
+        from(bundle) {
+            into "META-INF/jars/${minecraftVersion}"
+            rename { filename -> bundledModules.find { filename.startsWith(it + '-') } + '.jar' }
+        }
+    }
+
+    def metadata = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
+        schemaVersion: 1,
+        id: 'nomiss-platform',
+        version: minecraftVersion,
+        name: "NoMiss compatibility for Minecraft ${minecraftVersion}",
+        environment: 'client',
+        license: 'CC0-1.0',
+        depends: requirements,
+        custom: [modmenu: [parent: 'nomiss', badges: ['library']]]
+    ]))
+    def metadataFile = layout.buildDirectory.file("generated/platform-${minecraftVersion}/fabric.mod.json")
+    def generateMetadata = tasks.register("generatePlatform${suffix}") {
+        inputs.property('metadata', metadata)
+        outputs.file(metadataFile)
+        doLast {
+            def output = metadataFile.get().asFile
+            output.parentFile.mkdirs()
+            output.setText(metadata, 'UTF-8')
+        }
+    }
+    def platformJar = tasks.register("platformJar${suffix}", Jar) {
+        dependsOn(generateMetadata)
+        archiveFileName = "nomiss-platform-${minecraftVersion}.jar"
+        destinationDirectory = layout.buildDirectory.dir('platforms')
+        from(metadataFile)
+    }
+    tasks.named('jar', Jar) {
+        from(platformJar.flatMap { it.archiveFile }) { into 'META-INF/jars' }
+    }
+    if (minecraftVersion == project.minecraft_version) {
+        dependencies.add('runtimeOnly', files(platformJar))
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    bundledModules.each { module ->
+        implementation fabricApi.module(module, developmentTarget.fabricApi)
+    }
+    compileOnly "com.terraformersmc:modmenu:${developmentTarget.modMenu}"
+    if (project.hasProperty('withModMenu')) {
+        runtimeOnly "com.terraformersmc:modmenu:${developmentTarget.modMenu}"
+    }
+    testImplementation platform('org.junit:junit-bom:5.14.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 test {
 	useJUnitPlatform()
+    def universalJar = tasks.named('jar', Jar).flatMap { it.archiveFile }
+    dependsOn(tasks.named('jar'))
+    inputs.file(universalJar)
+    systemProperty 'nomiss.testJar', universalJar.get().asFile.absolutePath
 }
 
 processResources {

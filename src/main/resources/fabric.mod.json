@@ -18,8 +18,12 @@
 	],
 	"depends": {
 		"fabricloader": ">=0.19.5",
-		"minecraft": ">=26.3 <26.4",
-		"java": ">=25"
+		"minecraft": [
+			"26.2",
+			"26.3"
+		],
+		"java": ">=25",
+		"nomiss-platform": "*"
 	},
 	"entrypoints": {
 		"client": [
@@ -30,6 +34,38 @@
 		]
 	},
 	"suggests": {
-		"modmenu": ">=21.0.0"
-	}
+		"modmenu": ">=20.0.3"
+	},
+	"jars": [
+		{
+			"file": "META-INF/jars/nomiss-platform-26.2.jar"
+		},
+		{
+			"file": "META-INF/jars/nomiss-platform-26.3.jar"
+		},
+		{
+			"file": "META-INF/jars/26.2/fabric-api-base.jar"
+		},
+		{
+			"file": "META-INF/jars/26.2/fabric-key-mapping-api-v1.jar"
+		},
+		{
+			"file": "META-INF/jars/26.2/fabric-lifecycle-events-v1.jar"
+		},
+		{
+			"file": "META-INF/jars/26.2/fabric-resource-loader-v1.jar"
+		},
+		{
+			"file": "META-INF/jars/26.3/fabric-api-base.jar"
+		},
+		{
+			"file": "META-INF/jars/26.3/fabric-key-mapping-api-v1.jar"
+		},
+		{
+			"file": "META-INF/jars/26.3/fabric-lifecycle-events-v1.jar"
+		},
+		{
+			"file": "META-INF/jars/26.3/fabric-resource-loader-v1.jar"
+		}
+	]
 }
