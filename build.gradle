@@ -61,7 +61,7 @@ compatibilityTargets.each { minecraftVersion, target ->
         version: minecraftVersion,
         name: "NoMiss compatibility for Minecraft ${minecraftVersion}",
         environment: 'client',
-        license: 'CC0-1.0',
+        license: 'All-Rights-Reserved',
         depends: requirements,
         custom: [modmenu: [parent: 'nomiss', badges: ['library']]]
     ]))
