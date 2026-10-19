@@ -3,7 +3,7 @@
 	"id": "nomiss",
 	"version": "${version}",
 	"name": "No Miss",
-	"description": "Cancels left-click swings with a sword, axe or mace unless something is actually in reach under your crosshair.",
+	"description": "Configurable protection against wasted attacks, with an accessibility toggle, item picker, and keyboard shortcuts.",
 	"authors": [
 		"You"
 	],
@@ -18,7 +18,18 @@
 	],
 	"depends": {
 		"fabricloader": ">=0.19.5",
-		"minecraft": ">=26.2 <26.4",
+		"minecraft": ">=26.3 <26.4",
 		"java": ">=25"
+	},
+	"entrypoints": {
+		"client": [
+			"com.nomiss.client.NoMissClient"
+		],
+		"modmenu": [
+			"com.nomiss.client.compat.NoMissModMenu"
+		]
+	},
+	"suggests": {
+		"modmenu": ">=21.0.0"
 	}
 }

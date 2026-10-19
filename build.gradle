@@ -4,6 +4,7 @@ plugins {
 }
 
 repositories {
+	maven { url = 'https://maven.terraformersmc.com/releases/' }
 	// Add repositories to retrieve artifacts from in here.
 	// You should only use this when depending on other mods because
 	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
@@ -27,7 +28,21 @@ dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
-	// This mod only uses a mixin, so it doesn't need Fabric API.
+	// Bundle just the input, lifecycle and resource hooks we use; no separate Fabric API install is needed.
+	for (module in ['fabric-api-base', 'fabric-key-mapping-api-v1', 'fabric-lifecycle-events-v1', 'fabric-resource-loader-v1']) {
+		implementation include(fabricApi.module(module, project.fabric_api_version))
+	}
+	compileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+	if (project.hasProperty('withModMenu')) {
+		runtimeOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+	}
+	testImplementation platform('org.junit:junit-bom:5.14.0')
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+	useJUnitPlatform()
 }
 
 processResources {

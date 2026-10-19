@@ -1,63 +1,61 @@
 package com.nomiss.client.mixin;
 
+import com.nomiss.client.NoMissClient;
+import com.nomiss.config.AttackProtection;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.tags.ItemTags;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.entity.projectile.ProjectileUtil;
+import net.minecraft.world.item.component.PiercingWeapon;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/**
- * Stops you from swinging a sword, axe or mace at nothing.
- *
- * The game only puts an ENTITY in {@code hitResult} when you are aiming at an entity's
- * hitbox AND it is inside your entity interaction range. If you aim at empty air, or at
- * something that is out of reach, the result is MISS (or BLOCK if a block is behind it),
- * so a left click in that situation is cancelled here before the swing happens.
- */
 @Mixin(Minecraft.class)
 public abstract class MinecraftMixin {
+    @Inject(method = "startAttack", at = @At("HEAD"), cancellable = true)
+    private void nomiss$cancelWastedAttack(CallbackInfoReturnable<Boolean> cir) {
+        var config = NoMissClient.config();
+        Minecraft client = (Minecraft) (Object) this;
+        if (!config.enabled() || client.player == null || client.hitResult == null || client.player.isSpectator()) return;
+        var held = client.player.getMainHandItem();
+        String itemId = BuiltInRegistries.ITEM.getKey(held.getItem()).toString();
+        if (!config.contains(itemId)) return;
+        var target = AttackProtection.Target.valueOf(client.hitResult.getType().name());
 
-	/**
-	 * true  = you can still left-click blocks with a sword/axe/mace (chop wood, break cobwebs, etc.).
-	 * false = strict mode: the weapon only swings when an entity is in reach, never at blocks.
-	 */
-	private static final boolean ALLOW_BLOCK_BREAKING = true;
+        if (target != AttackProtection.Target.BLOCK || !config.allowBlockBreaking()) {
+            if (held.has(DataComponents.PIERCING_WEAPON)) {
+                // Spears have their own minimum/maximum reach and piercing raycast. Match vanilla's
+                // stab query so a too-close entity or an entity behind a wall doesn't waste a jab.
+                boolean canHit = ProjectileUtil.getHitEntitiesAlong(client.player, client.player.getAttackRangeWith(held),
+                    entity -> PiercingWeapon.canHitEntity(client.player, entity), ClipContext.Block.COLLIDER)
+                    .map(block -> false, entities -> !entities.isEmpty());
+                target = canHit ? AttackProtection.Target.ENTITY : AttackProtection.Target.MISS;
+            } else if (client.hitResult instanceof EntityHitResult entityHit
+                && !client.player.isWithinAttackRange(held, entityHit.getEntity().getBoundingBox(), 0.0)) {
+                target = AttackProtection.Target.MISS;
+            }
+        }
+        if (AttackProtection.shouldCancel(config, itemId, target, client.player.getAttackStrengthScale(0.0F))) {
+            cir.setReturnValue(false);
+        }
+    }
 
-	@Inject(method = "startAttack", at = @At("HEAD"), cancellable = true)
-	private void nomiss$cancelSwingAtNothing(CallbackInfoReturnable<Boolean> cir) {
-if (java.nio.file.Files.exists(java.nio.file.Path.of("config", "nomiss.off"))) {
-    return;
-}
-		Minecraft minecraft = (Minecraft) (Object) this;
-		LocalPlayer player = minecraft.player;
-		if (player == null) {
-			return;
-		}
-
-		ItemStack held = player.getMainHandItem();
-		boolean isMeleeWeapon = held.is(ItemTags.SWORDS) || held.is(ItemTags.AXES) || held.is(Items.MACE);
-		if (!isMeleeWeapon) {
-			return; // any other item behaves exactly like vanilla
-		}
-
-		HitResult target = minecraft.hitResult;
-		if (target == null) {
-			return; // let vanilla deal with its own error case
-		}
-
-		HitResult.Type type = target.getType();
-		if (type == HitResult.Type.ENTITY) {
-			return; // an entity is in reach and under the crosshair: allow the hit
-		}
-		if (type == HitResult.Type.BLOCK && ALLOW_BLOCK_BREAKING) {
-			return;
-		}
-
-		cir.setReturnValue(false); // nothing to hit: cancel the swing
-	}
+    @Inject(method = "continueAttack", at = @At("HEAD"), cancellable = true)
+    private void nomiss$preventHeldBlockAttack(boolean attacking, CallbackInfo ci) {
+        Minecraft client = (Minecraft) (Object) this;
+        var config = NoMissClient.config();
+        if (!attacking || !config.enabled() || config.allowBlockBreaking() || client.player == null
+            || client.gameMode == null || client.hitResult == null || client.player.isSpectator()) return;
+        String itemId = BuiltInRegistries.ITEM.getKey(client.player.getMainHandItem().getItem()).toString();
+        if (config.contains(itemId) && client.hitResult.getType() == HitResult.Type.BLOCK) {
+            client.gameMode.stopDestroyBlock();
+            ci.cancel();
+        }
+    }
 }

@@ -3,7 +3,8 @@
 	"package": "com.nomiss.client.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
-		"MinecraftMixin"
+		"MinecraftMixin",
+		"AccessibilityOptionsScreenMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

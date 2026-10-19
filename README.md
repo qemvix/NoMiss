@@ -1,35 +1,44 @@
-# No Miss
+# NoMiss
 
-Client-side Fabric mod for Minecraft 26.2 and 26.3. While you hold a **sword, axe or mace**, left-click does
-nothing unless an entity is under your crosshair and inside your reach. No more air swings, no more
-wasted attack cooldown. Every other item behaves like vanilla.
+Client-side Fabric mod for **Minecraft 26.3**. Prevent wasted left-click attacks with the items you choose: an entity must be under your crosshair and within the weapon's reach. Other items behave like vanilla.
 
-## Build
+## Install
 
-Needs JDK 25 and an internet connection (Gradle downloads everything else).
+Put `nomiss-1.1.0.jar` in your `mods` folder with **Fabric Loader 0.19.5+** and **Java 25**. Remove older NoMiss JARs first. The small Fabric API modules used by NoMiss are bundled; a separate Fabric API download is not required.
 
-First open `gradle.properties` and set `minecraft_version` to the version you play (`26.2` or `26.3`).
+[Mod Menu](https://modrinth.com/mod/modmenu) 21.0.0+ is optional. When installed, its NoMiss configuration button opens the same settings screen.
 
-    ./gradlew build        # Windows: gradlew.bat build
+## Settings and shortcuts
 
-The finished mod is `build/libs/nomiss-1.0.0.jar` (not the `-sources` one). Drop it in your
-`mods` folder next to Fabric Loader 0.19.5+ (Fabric API is not required).
+- **Accessibility Settings → NoMiss: ON/OFF** toggles the entire mod. The adjacent **NoMiss Settings** button opens its options.
+- **`;` / `:`** (the semicolon key) opens settings while playing.
+- **`'`** (apostrophe) toggles the mod while playing and shows its new state above the hotbar.
+- Both shortcuts can be changed under **Options → Controls → Key Binds → NoMiss**. They do not activate while typing in chat or other menus.
 
-## Options
+Settings has **Weapon 1–20** slots, like Minecraft's keybind list. Each **Select item…** button opens a searchable picker with item icons, display names and registry IDs. Vanilla and installed mod items appear automatically. Click an item to assign it; **×** clears a slot. Each item type can occupy one slot. All variants with the same item ID (including enchanted/custom-named stacks) use that slot.
 
-At the top of `src/client/java/com/nomiss/client/mixin/MinecraftMixin.java`:
+Defaults protect all seven sword variants, all seven spear variants, and the mace. Axes can be selected manually. **Default items** restores these 15 selections without resetting other options; **Clear selection** empties all slots.
 
-- `ALLOW_BLOCK_BREAKING = true` (default): you can still left-click blocks with these weapons
-  (chopping logs with an axe, cutting cobwebs with a sword).
-- `ALLOW_BLOCK_BREAKING = false`: strict mode, the weapon only ever swings at an entity in reach.
+Two additional settings are available:
 
-## How it works
+- **Wait for cooldown: OFF** by default. When enabled, selected items may attack entities only when attack strength is fully recharged. Blocked clicks are discarded; this never queues or automatically performs attacks.
+- **Allow block breaking: ON** by default. When disabled, selected items require an entity target, including when holding left-click on blocks.
 
-`Minecraft.startAttack()` is what runs when you press attack. The game's `hitResult` is only an
-ENTITY when you're aiming at a hitbox within entity interaction range, so the mixin cancels the
-attack whenever the result is anything else.
+Changes apply and save immediately to `config/nomiss.json`. Empty slots and modded item IDs are retained across restarts. Unknown items remain visible in their slots so they can be cleared. Invalid JSON is backed up to `nomiss.broken-<timestamp>.json` before defaults are used. An existing `config/nomiss.off` file is migrated only when the JSON config does not yet exist.
 
-## If the build fails
+## Development
 
-The mixin uses Mojang names (`startAttack`, `hitResult`, `player`). If Mojang renamed one in a
-newer snapshot, the compiler error will name the symbol: fix it in `MinecraftMixin.java`.
+Requires JDK 25. From the checkout:
+
+```sh
+bash gradlew build
+```
+
+The finished mod is `build/libs/nomiss-1.1.0.jar`, without the `-sources` suffix. `bash gradlew test` runs configuration and attack-rule regression tests.
+
+```sh
+bash gradlew runClient                  # test without Mod Menu
+bash gradlew runClient -PwithModMenu    # test with Mod Menu
+```
+
+The default build targets Minecraft 26.3; this release does not claim compatibility with 26.2. No server mod is required. NoMiss leaves vanilla attacks, damage, weapon reach and server rules in control.
