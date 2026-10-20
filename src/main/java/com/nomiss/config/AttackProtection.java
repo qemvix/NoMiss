@@ -7,10 +7,14 @@ public final class AttackProtection {
     public enum BlockReason { OUT_OF_REACH, COOLDOWN, BLOCKS_DISABLED }
 
     public static BlockReason blockedReason(NoMissConfig config, String itemId, Target target, float attackStrength) {
-        if (!config.enabled() || !config.contains(itemId)) return null;
-        if (target == Target.BLOCK) return config.allowBlockBreaking() ? null : BlockReason.BLOCKS_DISABLED;
+        return blockedReason(config.enabled(), config.resolve(itemId, NoMissConfig.vanillaCategories(itemId), ""), target, attackStrength);
+    }
+
+    public static BlockReason blockedReason(boolean enabled, NoMissConfig.Rules rules, Target target, float attackStrength) {
+        if (!enabled || rules == null) return null;
+        if (target == Target.BLOCK) return rules.blocks() ? null : BlockReason.BLOCKS_DISABLED;
         if (target != Target.ENTITY) return BlockReason.OUT_OF_REACH;
-        return config.blockDuringCooldown() && attackStrength < 1.0F ? BlockReason.COOLDOWN : null;
+        return rules.cooldown() && attackStrength < 1.0F ? BlockReason.COOLDOWN : null;
     }
 
     public static boolean shouldCancel(NoMissConfig config, String itemId, Target target, float attackStrength) {

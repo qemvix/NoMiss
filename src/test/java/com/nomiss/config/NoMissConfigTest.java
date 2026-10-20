@@ -15,7 +15,7 @@ class NoMissConfigTest {
         assertTrue(config.enabled());
         assertTrue(config.allowBlockBreaking());
         assertFalse(config.blockDuringCooldown());
-        assertEquals(15, config.items().size());
+        assertEquals(3, config.items().size());
         assertTrue(config.contains("minecraft:diamond_sword"));
         assertTrue(config.contains("minecraft:copper_spear"));
         assertTrue(config.contains("minecraft:mace"));
@@ -128,15 +128,15 @@ class NoMissConfigTest {
     }
 
     @Test void quickAddUsesFirstHoleAndNeverOverwritesOrDuplicates() {
-        var config = new NoMissConfig();
+        var config = new NoMissConfig(); config.clearItems();
+        for (int i = 0; i < 20; i++) assertTrue(config.setItem(i, "custom:item_" + i));
         config.setItem(2, "");
         assertEquals(NoMissConfig.AddResult.ADDED, config.addHeldItem("custom:held"));
         assertEquals("custom:held", config.itemAt(2));
         assertEquals(NoMissConfig.AddResult.ALREADY_SELECTED, config.addHeldItem("custom:held"));
-        for (int i = 15; i < 20; i++) assertTrue(config.setItem(i, "custom:item_" + i));
         var fullSelection = config.items();
         assertEquals(NoMissConfig.AddResult.FULL, config.addHeldItem("custom:extra"));
-        assertEquals(NoMissConfig.AddResult.ALREADY_SELECTED, config.addHeldItem("minecraft:mace"));
+        assertEquals(NoMissConfig.AddResult.ALREADY_SELECTED, config.addHeldItem("custom:item_3"));
         for (String id : new String[]{null, "", "Bad ID", "minecraft:air"})
             assertEquals(NoMissConfig.AddResult.INVALID, config.addHeldItem(id));
         assertEquals(fullSelection, config.items());

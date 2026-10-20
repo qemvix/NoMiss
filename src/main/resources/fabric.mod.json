@@ -1,71 +1,71 @@
 {
-	"schemaVersion": 1,
-	"id": "nomiss",
-	"version": "${version}",
-	"name": "No Miss",
-	"description": "Configurable protection against wasted attacks, with an accessibility toggle, item picker, and keyboard shortcuts.",
-	"authors": [
-		"You"
-	],
-	"license": "All-Rights-Reserved",
-	"icon": "assets/nomiss/icon.png",
-	"environment": "client",
-	"mixins": [
-		{
-			"config": "nomiss.client.mixins.json",
-			"environment": "client"
-		}
-	],
-	"depends": {
-		"fabricloader": ">=0.19.5",
-		"minecraft": [
-			"26.2",
-			"26.3"
-		],
-		"java": ">=25",
-		"nomiss-platform": "*"
-	},
-	"entrypoints": {
-		"client": [
-			"com.nomiss.client.NoMissClient"
-		],
-		"modmenu": [
-			"com.nomiss.client.compat.NoMissModMenu"
-		]
-	},
-	"suggests": {
-		"modmenu": ">=20.0.3"
-	},
-	"jars": [
-		{
-			"file": "META-INF/jars/nomiss-platform-26.2.jar"
-		},
-		{
-			"file": "META-INF/jars/nomiss-platform-26.3.jar"
-		},
-		{
-			"file": "META-INF/jars/26.2/fabric-api-base.jar"
-		},
-		{
-			"file": "META-INF/jars/26.2/fabric-key-mapping-api-v1.jar"
-		},
-		{
-			"file": "META-INF/jars/26.2/fabric-lifecycle-events-v1.jar"
-		},
-		{
-			"file": "META-INF/jars/26.2/fabric-resource-loader-v1.jar"
-		},
-		{
-			"file": "META-INF/jars/26.3/fabric-api-base.jar"
-		},
-		{
-			"file": "META-INF/jars/26.3/fabric-key-mapping-api-v1.jar"
-		},
-		{
-			"file": "META-INF/jars/26.3/fabric-lifecycle-events-v1.jar"
-		},
-		{
-			"file": "META-INF/jars/26.3/fabric-resource-loader-v1.jar"
-		}
-	]
+  "schemaVersion": 1,
+  "id": "nomiss",
+  "version": "${version}",
+  "name": "No Miss",
+  "description": "Profiles, weapon categories and exact-item protection, per-weapon attack rules, automatic server profiles, and a customizable HUD.",
+  "authors": [
+    "qemvix"
+  ],
+  "license": "All-Rights-Reserved",
+  "icon": "assets/nomiss/icon.png",
+  "environment": "client",
+  "mixins": [
+    {
+      "config": "nomiss.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "minecraft": [
+      "26.2",
+      "26.3"
+    ],
+    "java": ">=25",
+    "nomiss-platform": "*"
+  },
+  "entrypoints": {
+    "client": [
+      "com.nomiss.client.NoMissClient"
+    ],
+    "modmenu": [
+      "com.nomiss.client.compat.NoMissModMenu"
+    ]
+  },
+  "suggests": {
+    "modmenu": ">=20.0.3"
+  },
+  "jars": [
+    {
+      "file": "META-INF/jars/nomiss-platform-26.2.jar"
+    },
+    {
+      "file": "META-INF/jars/nomiss-platform-26.3.jar"
+    },
+    {
+      "file": "META-INF/jars/26.2/fabric-api-base.jar"
+    },
+    {
+      "file": "META-INF/jars/26.2/fabric-key-mapping-api-v1.jar"
+    },
+    {
+      "file": "META-INF/jars/26.2/fabric-lifecycle-events-v1.jar"
+    },
+    {
+      "file": "META-INF/jars/26.2/fabric-resource-loader-v1.jar"
+    },
+    {
+      "file": "META-INF/jars/26.3/fabric-api-base.jar"
+    },
+    {
+      "file": "META-INF/jars/26.3/fabric-key-mapping-api-v1.jar"
+    },
+    {
+      "file": "META-INF/jars/26.3/fabric-lifecycle-events-v1.jar"
+    },
+    {
+      "file": "META-INF/jars/26.3/fabric-resource-loader-v1.jar"
+    }
+  ]
 }

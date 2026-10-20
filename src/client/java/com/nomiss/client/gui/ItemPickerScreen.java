@@ -2,6 +2,7 @@ package com.nomiss.client.gui;
 
 import com.nomiss.client.NoMissClient;
 import com.nomiss.config.NoMissConfig;
+import com.nomiss.config.WeaponSelection;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -37,9 +38,12 @@ public final class ItemPickerScreen extends Screen {
         for (var id : BuiltInRegistries.ITEM.keySet()) {
             if (id.equals(BuiltInRegistries.ITEM.getKey(Items.AIR))) continue;
             ItemStack stack = ItemPreview.of(BuiltInRegistries.ITEM.getValue(id));
-            catalog.add(new ItemChoice(id.toString(), stack.getHoverName(), stack));
+            catalog.add(new ItemChoice(WeaponSelection.item(id.toString()), stack.getHoverName(), stack));
         }
         catalog.sort(Comparator.comparing(choice -> choice.name().getString().toLowerCase(Locale.ROOT)));
+        String[] groups = {"swords", "spears", "axes", "maces", "pickaxes", "shovels", "hoes"};
+        net.minecraft.world.item.Item[] icons = {Items.DIAMOND_SWORD, Items.DIAMOND_SPEAR, Items.DIAMOND_AXE, Items.MACE, Items.DIAMOND_PICKAXE, Items.DIAMOND_SHOVEL, Items.DIAMOND_HOE};
+        for (int i = groups.length - 1; i >= 0; i--) catalog.addFirst(new ItemChoice(WeaponSelection.category(groups[i]), Component.translatable("nomiss.category." + groups[i]), ItemPreview.of(icons[i])));
     }
 
     @Override
@@ -62,7 +66,7 @@ public final class ItemPickerScreen extends Screen {
         if (itemList == null) return;
         String needle = query.trim().toLowerCase(Locale.ROOT);
         itemList.replaceEntries(catalog.stream()
-            .filter(choice -> choice.id().contains(needle) || choice.name().getString().toLowerCase(Locale.ROOT).contains(needle))
+            .filter(choice -> choice.selection().key().contains(needle) || choice.name().getString().toLowerCase(Locale.ROOT).contains(needle))
             .map(ItemEntry::new).toList());
         itemList.setScrollAmount(0);
     }
@@ -78,7 +82,7 @@ public final class ItemPickerScreen extends Screen {
     }
 
     @Override public void onClose() { minecraft.gui.setScreen(parent); }
-    private record ItemChoice(String id, Component name, ItemStack stack) {}
+    private record ItemChoice(WeaponSelection selection, Component name, ItemStack stack) {}
     private final class ItemList extends ContainerObjectSelectionList<ItemEntry> {
         private ItemList(Minecraft client, int width, int height, int top) { super(client, width, height, top, 28); }
         @Override public int getRowWidth() { return getWidth() - 16; }
@@ -88,15 +92,17 @@ public final class ItemPickerScreen extends Screen {
         private final Button button;
         private ItemEntry(ItemChoice choice) {
             this.choice = choice;
-            int usedSlot = config.slotOf(choice.id());
+            int usedSlot = -1;
+            for (int i = 0; i < NoMissConfig.MAX_ITEMS; i++) if (config.selection(i).key().equals(choice.selection().key())) usedSlot = i;
             boolean usedElsewhere = usedSlot >= 0 && usedSlot != slot;
             button = Button.builder(choice.name(), pressed -> {
-                if (config.setItem(slot, choice.id())) {
+                var previous = config.selection(slot);
+                if (config.setSelection(slot, choice.selection().withRules(previous.cooldown(), previous.blocks()))) {
                     saveFailed = !NoMissClient.saveConfig();
                     if (!saveFailed) onClose();
                 }
             }).bounds(0, 0, 200, 22).tooltip(Tooltip.create(usedElsewhere
-                ? Component.translatable("nomiss.already_selected", usedSlot + 1) : Component.literal(choice.id()))).build();
+                ? Component.translatable("nomiss.already_selected", usedSlot + 1) : Component.literal(choice.selection().key()))).build();
             button.active = !usedElsewhere;
         }
         @Override

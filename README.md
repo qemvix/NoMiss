@@ -1,56 +1,131 @@
-# NoMiss
+# NoMiss 1.2
 
-Client-side Fabric mod for **Minecraft 26.2 and 26.3**. Prevent wasted left-click attacks with the items you choose: an entity must be under your crosshair and within the weapon's reach. Other items behave like vanilla.
+Client-side Fabric mod for **Minecraft 26.2 and 26.3**. Prevent wasted attacks with selected weapons, categories, or exact items. Vanilla damage, reach and server rules remain in control; attacks are never queued or performed automatically.
 
 ## Install
 
-Put `nomiss-1.1.1.jar` in your `mods` folder with **Fabric Loader 0.19.5+** and **Java 25**. Remove older NoMiss JARs first. The small Fabric API modules used by NoMiss are bundled; a separate Fabric API download is not required.
+Put **`nomiss-1.2.jar`** in your `mods` folder with **Fabric Loader 0.19.5+** and **Java 25**. Remove older NoMiss JARs first. The required Fabric API modules are bundled. No server-side mod is required.
 
-[Mod Menu](https://modrinth.com/mod/modmenu) is optional: use a 26.2-compatible Mod Menu build (20.0.3+) on Minecraft 26.2, or a 26.3-compatible build (21.0.0+) on Minecraft 26.3. When installed, its NoMiss configuration button opens the same settings screen.
+[Mod Menu](https://modrinth.com/mod/modmenu) is optional. Use a Minecraft 26.2 build (20.0.3+) on 26.2, or a Minecraft 26.3 build (21.0.0+) on 26.3.
 
-## Settings and shortcuts
+## Open settings and change shortcuts
 
-- **Accessibility Settings → NoMiss: ON/OFF** toggles the entire mod. The adjacent **NoMiss Settings** button opens its options.
-- **`;` / `:`** (the semicolon key) opens settings while playing.
-- **`'`** (apostrophe) toggles the mod while playing and shows its new state above the hotbar.
-- **Add held item** and **Show/hide NoMiss status** have optional shortcuts, unbound by default.
-- All four shortcuts can be changed under **Options → Controls → Key Binds → NoMiss**. They do not activate while typing in chat or other menus. The settings screen also has a **Key binds…** button that opens that menu.
+Open **Accessibility Settings → NoMiss Settings**, use NoMiss's configuration button in Mod Menu, or press **`;` / `:`** while playing. Accessibility Settings also retains the full-mod ON/OFF button.
 
-Settings has **Weapon 1–20** slots, like Minecraft's keybind list. Each **Select item…** button opens a searchable picker with item icons, display names and registry IDs. Vanilla and installed mod items appear automatically. Click an item to assign it; **×** clears a slot. Each item type can occupy one slot. All variants with the same item ID (including enchanted/custom-named stacks) use that slot.
+All five shortcuts can be changed under **Options → Controls → Key Binds → NoMiss**. General has a **Key binds…** button leading there.
 
-Defaults protect all seven sword variants, all seven spear variants, and the mace. Axes can be selected manually. **Default items** restores these 15 selections without resetting other options; **Clear selection** empties all slots.
+| Action | Default |
+| --- | --- |
+| Open settings | Semicolon `;` |
+| Toggle NoMiss | Apostrophe `'` |
+| Add held item | Unbound |
+| Show/hide status indicator | Unbound |
+| Next profile | Unbound |
 
-Additional settings are available:
+Shortcuts are drained while typing in chat and menus, so they cannot activate later from a queued keypress.
 
-- **Wait for cooldown: OFF** by default. When enabled, selected items may attack entities only when attack strength is fully recharged. Blocked clicks are discarded; this never queues or automatically performs attacks.
-- **Allow block breaking: ON** by default. When disabled, selected items require an entity target, including when holding left-click on blocks.
+## General
 
-- **Show NoMiss status: ON** by default. A small ON/OFF indicator appears in the upper-left corner while playing. Its menu toggle and optional shortcut hide only the indicator; attack protection is independent.
-- **Explain blocked attacks: OFF** by default. Briefly shows **Out of reach / no entity targeted**, **Cooldown**, or **Block breaking disabled** after a blocked click. This option is independent of the status indicator. Both indicators respect F1 and hide in menus.
+The menu has **General, Weapons, Profiles and HUD** pages. Changes apply and save immediately.
 
-Each setting has its own **Reset** button. It restores only that setting's default without changing other options, weapon slots, or keybinds. Reset shortcuts separately in Minecraft's Key Binds menu.
+- **NoMiss: ON/OFF** is global across profiles.
+- **Wait for cooldown** and **Allow block breaking** are defaults for the active profile. A weapon slot can inherit or override them.
+- **Cooldown protection starts OFF in every built-in preset and every newly created profile.** Turn it on manually if wanted. Duplicating a profile deliberately copies its settings; migration and import preserve settings you previously chose.
+- Individual Reset buttons restore one setting without altering weapon selections or unrelated options.
 
-**Add held item** adds your main-hand item to the first empty weapon slot. It works with vanilla and modded items, never replaces a selection, and explains if your hand is empty, the item is already selected, or all 20 slots are full. Join a world to use it from the menu or assign its optional shortcut.
+## Weapons
 
-Changes apply and save immediately to `config/nomiss.json`. Empty slots and modded item IDs are retained across restarts. Unknown items remain visible in their slots so they can be cleared. Invalid JSON is backed up to `nomiss.broken-<timestamp>.json` before defaults are used. An existing `config/nomiss.off` file is migrated only when the JSON config does not yet exist.
+Each profile has **20 numbered slots**. Click a slot to select its weapon and configure its rules. The searchable picker shows icons for vanilla and registered mod items, plus these categories:
+
+- All swords
+- All spears
+- All axes
+- All maces
+- All pickaxes
+- All shovels
+- All hoes
+
+A category takes **one slot**, regardless of the number of matching weapons. New profiles start with All swords, All spears and All maces: three slots instead of fifteen individual weapon tiers.
+
+Compatible modded weapons are recognized using Minecraft's corresponding item tags and common `c:tools/sword`, `spear`, `axe`, `mace`, `pickaxe`, `shovel`, and `hoe` tags. Items with the piercing-weapon component also count as spears. Mods that do not identify their weapon types this way can still be selected individually in the picker. Categories use the running world's tags, including data-pack changes.
+
+**Add held item** adds the main-hand item type to the first empty slot. **Exact** adds an exact-item selection instead. Neither replaces an occupied slot. Duplicates, empty hands and a full list are reported. The slot editor also has **Use exact held item**, which replaces only that slot's selection and preserves its rules.
+
+### Per-slot attack rules
+
+Every slot has **Wait for cooldown** and **Allow block breaking** controls:
+
+- **Profile default** follows General.
+- **ON** or **OFF** overrides the profile for that selection.
+- **Reset both rules** returns that slot to inheriting the profile defaults.
+
+When selections overlap, **exact item wins over individual item type, which wins over category**. This allows a general sword category with a different rule for a particular sword. If multiple categories match, the lowest numbered matching category slot wins. Identical selections cannot occupy multiple slots.
+
+### Exact-item protection
+
+Exact matching compares the item's type and serialized properties, including custom name, enchantments and other components. **Stack count, durability and repair cost are ignored**, so normal use and repair do not remove protection. Renaming, enchanting, or changing other properties requires capturing the item again. Identical copies also match; this is not a unique physical-stack identifier.
+
+Broader selections still apply to other items. To protect only one named sword, replace All swords with the exact held sword, or remove other selections that also cover its type. Exact-item capture requires joining a world and serializable item properties. Only a fingerprint and display label are saved, not the item's component payload.
+
+**Default categories** replaces the active profile's slots with the three defaults; **Clear selection** asks before emptying its slots. Existing 1.1.x selections are preserved on upgrade, including their original numbered slots and unknown modded item IDs. Use Default categories when you want to replace an older expanded list with compact groups.
+
+Block breaking is permitted by default in Survival and Modpack. Disabling it prevents selected items from breaking blocks, including while holding left-click. Spears use vanilla's minimum/maximum reach and collision checks; spectators bypass attack protection.
+
+## Profiles and presets
+
+Three built-in starting profiles are provided, all with cooldown protection **OFF**:
+
+| Profile | Categories | Block breaking |
+| --- | --- | --- |
+| Survival | Swords, spears, maces | ON |
+| PvP | Swords, spears, maces | OFF |
+| Modpack | Swords, spears, maces, axes | ON |
+
+Create, duplicate, rename, select and delete profiles on the Profiles page. **Create from preset…** adds a fresh preset without overwriting existing profiles. At least one profile must remain; up to 32 profiles can be saved. Deleting a profile asks for confirmation and removes its server assignments. The optional **Next profile** key cycles through saved profiles.
+
+### Automatic server profiles
+
+**Automatic server profiles** is optional and **OFF by default**. When enabled, joining a multiplayer server loads its remembered profile. Selecting a profile while connected remembers that choice for that server. On leaving, your previous manual profile is restored. While connected, saving retains the manual profile as the startup selection, so restarting elsewhere does not inherit a server override.
+
+You can also explicitly remember or forget the current server's assignment from Profiles. These controls require a multiplayer connection. Server addresses are stored only in the local NoMiss configuration, normalized for case and the default port; non-default ports remain separate. Single-player worlds do not create server assignments. Turning automatic profiles off keeps the current selection as your manual profile.
+
+### Import/export
+
+**Copy all settings to clipboard** exports profiles, selections, exact-item fingerprints, per-slot rules and HUD settings as JSON. Keybindings stay in Minecraft's own options. **Server addresses and assignments are excluded, and automatic server profiles are disabled in exports.**
+
+Paste this JSON into a message or file to share it. On the destination installation, copy the JSON and choose **Import settings from clipboard…**. NoMiss validates it before showing a confirmation. Import replaces all current profiles and display settings, clears server assignments and disables automatic server profiles. A backup of the current configuration is created before applying it. Invalid or oversized data is rejected; cancelling the confirmation leaves the configuration untouched.
+
+## HUD
+
+Each visual indicator has its own toggle:
+
+- **Show NoMiss status**: ON/OFF and active profile; ON by default.
+- **Show held-item protection**: whether the main-hand item is currently protected, accounting for the enabled toggle and spectator mode; OFF by default.
+- **Explain blocked attacks**: a short reason after a rejected click—out of reach/no entity targeted, cooldown, or block breaking disabled; OFF by default.
+
+Choose any screen corner, a size from **50–200%**, and opacity from **20–100%**. Each position/size/opacity control has its own Reset button. Indicators hide with F1 and while menus are open. Hiding an indicator does not disable protection or other indicators.
+
+## Configuration and upgrading
+
+Settings are saved atomically to **`config/nomiss.json`**, using schema version 2. Upgrading imports the old enabled flag, display options, manually chosen attack defaults and weapon slots into a **Migrated settings** profile. The original file is backed up as `nomiss.before-1.2-<id>.json` before the migrated configuration is saved.
+
+Imports create `nomiss.before-import-<id>.json` backups. Invalid configuration files are preserved as `nomiss.broken-<timestamp>.json` before defaults are used. If the original cannot be preserved, saving is disabled for that session. The legacy `nomiss.off` sentinel is read only when no JSON configuration exists. Unknown modded item IDs remain stored so they work again when that mod returns.
 
 ## Development
 
-Requires JDK 25. From the checkout:
+Requires **JDK 25**:
 
 ```sh
 bash gradlew build
 ```
 
-The finished mod is `build/libs/nomiss-1.1.1.jar`, without the `-sources` suffix. `bash gradlew test` runs configuration, attack-rule, and universal JAR packaging tests.
+The finished universal mod is **`build/libs/nomiss-1.2.jar`**, without `-sources`. Tests cover migration, profiles, matching priority, per-slot rules, server assignments, import/export validation, configuration persistence and universal packaging.
 
 ```sh
 bash gradlew runClient                                   # Minecraft 26.2
-bash gradlew runClient -PwithModMenu                     # 26.2 with Mod Menu
+bash gradlew runClient -PwithModMenu                     # 26.2 + Mod Menu
 bash gradlew runClient -Pminecraft_version=26.3          # Minecraft 26.3
 bash gradlew runClient -Pminecraft_version=26.3 -PwithModMenu
 ```
 
-The default development target is Minecraft 26.2. Both build targets produce the same universal packaging for 26.2 and 26.3. The JAR bundles the required Fabric library builds for each Minecraft version, plus dependency markers that select the correct set automatically. No server mod is required. NoMiss leaves vanilla attacks, damage, weapon reach and server rules in control.
-
-For compatibility checks, build once and install that exact JAR into both Minecraft profiles. Rebuilding separately for each game can hide binary differences. Keyboard defaults resolve persistent key names at runtime because 26.2 uses GLFW keycodes and 26.3 uses SDL scancodes.
+Both targets package the required library versions for both games, with dependency markers selecting the correct set at runtime. Build once and test **the exact same JAR** in both game profiles. Numeric key constants differ between 26.2 (GLFW) and 26.3 (SDL), so default shortcuts resolve persistent key names at runtime.

@@ -2,6 +2,7 @@ package com.nomiss.client;
 
 import com.nomiss.client.gui.NoMissScreen;
 import com.nomiss.config.NoMissConfig;
+import com.nomiss.config.WeaponSelection;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
@@ -27,6 +28,8 @@ public final class NoMissClient implements ClientModInitializer {
     public static KeyMapping toggleKey;
     public static KeyMapping addHeldKey;
     public static KeyMapping toggleStatusKey;
+    public static KeyMapping cycleProfileKey;
+    private static String serverContext;
 
     @Override
     public void onInitializeClient() {
@@ -44,6 +47,10 @@ public final class NoMissClient implements ClientModInitializer {
                 }
             }
         }
+        if (config.migratedLegacy() && Files.exists(CONFIG_PATH)) {
+            try { Files.copy(CONFIG_PATH, CONFIG_PATH.resolveSibling("nomiss.before-1.2-" + java.util.UUID.randomUUID() + ".json")); }
+            catch (IOException e) { canSave = false; LOGGER.error("Cannot back up the pre-1.2 settings; saving disabled to preserve them", e); }
+        }
         saveConfig();
         KeyMapping.Category category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("nomiss", "controls"));
         // Numeric key constants are inlined by javac, but 26.2 uses GLFW codes and 26.3
@@ -52,7 +59,12 @@ public final class NoMissClient implements ClientModInitializer {
         toggleKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.nomiss.toggle", InputConstants.getKey("key.keyboard.apostrophe").getValue(), category));
         addHeldKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.nomiss.add_held", InputConstants.UNKNOWN.getValue(), category));
         toggleStatusKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.nomiss.toggle_status", InputConstants.UNKNOWN.getValue(), category));
+        cycleProfileKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.nomiss.cycle_profile", InputConstants.UNKNOWN.getValue(), category));
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            String server = client.player != null && client.getCurrentServer() != null ? NoMissConfig.serverKey(client.getCurrentServer().ip) : null;
+            if (!java.util.Objects.equals(serverContext, server)) {
+                config.connectServer(server); serverContext = server; saveConfig();
+            }
             NoMissHud.tick(client);
             // Drain clicks even in menus: typing in chat/search must never toggle the mod later.
             while (toggleKey.consumeClick()) {
@@ -74,6 +86,12 @@ public final class NoMissClient implements ClientModInitializer {
                         : Component.translatable("nomiss.save_failed"));
                 }
             }
+            while (cycleProfileKey.consumeClick()) {
+                if (client.player != null && client.gui.screen() == null) {
+                    config.cycleProfile(); boolean saved = saveConfig();
+                    client.player.sendOverlayMessage(saved ? Component.translatable("nomiss.profile.active", config.activeProfile().name()) : Component.translatable("nomiss.save_failed"));
+                }
+            }
             while (openMenuKey.consumeClick()) {
                 if (client.player != null && client.gui.screen() == null) client.gui.setScreen(new NoMissScreen(null));
             }
@@ -82,19 +100,33 @@ public final class NoMissClient implements ClientModInitializer {
 
     public static NoMissConfig config() { return config; }
 
-    public static Component addHeldItem() {
+    public static Component addHeldItem() { return addHeldItem(false); }
+
+    public static Component addHeldItem(boolean exact) {
         var player = Minecraft.getInstance().player;
         if (player == null) return Component.translatable("nomiss.add_held.no_world");
         var held = player.getMainHandItem();
         if (held.isEmpty()) return Component.translatable("nomiss.add_held.empty");
-        String id = BuiltInRegistries.ITEM.getKey(held.getItem()).toString();
-        return switch (config.addHeldItem(id)) {
-            case ADDED -> saveConfig() ? Component.translatable("nomiss.add_held.added", held.getHoverName(), config.slotOf(id) + 1)
-                : Component.translatable("nomiss.save_failed");
-            case ALREADY_SELECTED -> Component.translatable("nomiss.already_selected", config.slotOf(id) + 1);
+        var captured = exact ? WeaponMatcher.exactSelection(held) : java.util.Optional.of(WeaponSelection.item(WeaponMatcher.id(held)));
+        if (captured.isEmpty()) return Component.translatable("nomiss.exact.failed");
+        var selection = captured.get();
+        return switch (config.addSelection(selection)) {
+            case ADDED -> saveConfig() ? Component.translatable("nomiss.add_held.success", held.getHoverName()) : Component.translatable("nomiss.save_failed");
+            case ALREADY_SELECTED -> Component.translatable("nomiss.selection.duplicate");
             case FULL -> Component.translatable("nomiss.limit", NoMissConfig.MAX_ITEMS);
             case INVALID -> Component.translatable("nomiss.add_held.empty");
         };
+    }
+
+    public static void activateProfile(String id) { config.activateProfile(id); saveConfig(); }
+
+    /** Parse before confirmation; preserve the existing file before committing a complete replacement. */
+    public static void importSettings(NoMissConfig replacement) throws IOException {
+        if (!canSave) throw new IOException("Saving is disabled; the current configuration could not be preserved");
+        if (Files.exists(CONFIG_PATH)) Files.copy(CONFIG_PATH, CONFIG_PATH.resolveSibling("nomiss.before-import-" + java.util.UUID.randomUUID() + ".json"));
+        replacement.save(CONFIG_PATH);
+        config = replacement;
+        config.connectServer(serverContext);
     }
 
     public static boolean saveConfig() {

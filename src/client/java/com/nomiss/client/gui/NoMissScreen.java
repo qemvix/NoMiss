@@ -1,173 +1,130 @@
 package com.nomiss.client.gui;
 
 import com.nomiss.client.NoMissClient;
-import com.nomiss.config.NoMissConfig;
-import java.util.List;
-import net.minecraft.client.Minecraft;
+import com.nomiss.config.*;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.TextAlignment;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.ContainerObjectSelectionList;
-import net.minecraft.client.gui.components.Tooltip;
-import net.minecraft.client.gui.components.events.GuiEventListener;
-import net.minecraft.client.gui.narration.NarratableEntry;
+import net.minecraft.client.gui.components.*;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.options.controls.KeyBindsScreen;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
-import net.minecraft.world.item.ItemStack;
+import java.io.IOException;
+import java.util.function.*;
 
-/** Shared by Accessibility, Mod Menu and the in-game shortcut. All changes save immediately. */
+/** One configuration entry point for Accessibility, Mod Menu and the in-game shortcut. */
 public final class NoMissScreen extends Screen {
+    public enum Page { GENERAL, WEAPONS, PROFILES, HUD }
     private final Screen parent;
-    private final NoMissConfig config = NoMissClient.config();
-    private SlotList slots;
-    private boolean saveFailed;
-    private int contentWidth;
+    private Page page;
+    private SettingsList rows;
     private Component feedback;
-
-    public NoMissScreen(Screen parent) {
-        super(Component.translatable("nomiss.settings"));
-        this.parent = parent;
+    private int contentWidth;
+    public NoMissScreen(Screen parent) { this(parent, Page.GENERAL); }
+    public NoMissScreen(Screen parent, Page page) { super(Component.translatable("nomiss.settings")); this.parent = parent; this.page = page; }
+    private NoMissConfig config() { return NoMissClient.config(); }
+    @Override protected void init() {
+        double scroll = rows == null ? 0 : rows.scrollAmount();
+        contentWidth = Math.min(440, width - 24); int left = (width - contentWidth) / 2;
+        int tabWidth = (contentWidth - 12) / 4;
+        for (var tab : Page.values()) {
+            var button = addRenderableWidget(Button.builder(Component.translatable("nomiss.page." + tab.name().toLowerCase(java.util.Locale.ROOT)), b -> {
+                page = tab; rows = null; feedback = null; rebuildWidgets();
+            }).bounds(left + tab.ordinal() * (tabWidth + 4), 30, tabWidth, 20).build());
+            button.active = tab != page;
+        }
+        rows = addRenderableWidget(new SettingsList(minecraft, contentWidth, Math.max(28, height - 118), 78)); rows.setX(left);
+        switch (page) { case GENERAL -> general(); case WEAPONS -> weapons(); case PROFILES -> profiles(); case HUD -> hud(); }
+        rows.setScrollAmount(scroll);
+        addRenderableWidget(Button.builder(Component.translatable("gui.done"), button -> onClose()).bounds(left, height - 28, contentWidth, 20).build());
     }
-
-    @Override
-    protected void init() {
-        double scroll = slots == null ? 0 : slots.scrollAmount();
-        contentWidth = Math.min(440, width - 24);
-        int left = (width - contentWidth) / 2;
-        int half = (contentWidth - 8) / 2;
-        slots = addRenderableWidget(new SlotList(minecraft, contentWidth, Math.max(32, height - 138), 54));
-        slots.setX(left);
-        for (var option : NoMissConfig.Option.values()) slots.addOption(option);
-        slots.addKeyBinds();
-        for (int i = 0; i < NoMissConfig.MAX_ITEMS; i++) slots.addSlot(i);
-        slots.setScrollAmount(scroll);
-        var addHeld = addRenderableWidget(Button.builder(Component.translatable("nomiss.add_held"), button -> {
-            feedback = NoMissClient.addHeldItem(); rebuildWidgets();
-        }).bounds(left, height - 76, contentWidth, 20)
-            .tooltip(Tooltip.create(Component.translatable(minecraft.player == null ? "nomiss.add_held.no_world" : "nomiss.add_held.tooltip"))).build());
-        addHeld.active = minecraft.player != null;
-        addRenderableWidget(Button.builder(Component.translatable("nomiss.defaults"), button -> {
-            config.resetItems(); save(); rebuildWidgets();
-        }).bounds(left, height - 52, half, 20).build());
-        addRenderableWidget(Button.builder(Component.translatable("nomiss.clear"), button -> {
-            config.clearItems(); save(); rebuildWidgets();
-        }).bounds(left + half + 8, height - 52, half, 20).build());
-        addRenderableWidget(Button.builder(Component.translatable("gui.done"), button -> onClose())
-            .bounds(left, height - 28, contentWidth, 20).build());
+    private Button action(Component label, Runnable run) { return Button.builder(label, b -> run.run()).build(); }
+    private Button action(String key, Runnable run) { return action(Component.translatable(key), run); }
+    private void save() { feedback = NoMissClient.saveConfig() ? null : Component.translatable("nomiss.save_failed"); }
+    private void change(Runnable run) { run.run(); save(); rebuildWidgets(); }
+    private void option(NoMissConfig.Option option) {
+        var toggle = action(Component.translatable(option.translationKey, Component.translatable(config().option(option) ? "options.on" : "options.off")), () -> change(() -> config().setOption(option, !config().option(option))));
+        toggle.setTooltip(Tooltip.create(Component.translatable(option.translationKey + ".tooltip")));
+        var reset = action("controls.reset", () -> change(() -> config().resetOption(option))); reset.active = config().option(option) != option.defaultValue;
+        reset.setTooltip(Tooltip.create(Component.translatable("nomiss.reset.tooltip"))); rows.row(toggle, reset);
     }
-
-    private void save() { feedback = null; saveFailed = !NoMissClient.saveConfig(); }
-
-    @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+    private void general() {
+        option(NoMissConfig.Option.ENABLED); option(NoMissConfig.Option.COOLDOWN); option(NoMissConfig.Option.BLOCKS);
+        rows.row(action("nomiss.keybinds", () -> minecraft.gui.setScreen(new KeyBindsScreen(this, minecraft.options))));
+        rows.note(Component.translatable("nomiss.profile.defaults_hint"));
+        rows.note(Component.translatable("nomiss.priority_hint"));
+    }
+    private void weapons() {
+        var add = action("nomiss.add_held", () -> { feedback = NoMissClient.addHeldItem(); rebuildWidgets(); });
+        var exact = action("nomiss.exact.short", () -> { feedback = NoMissClient.addHeldItem(true); rebuildWidgets(); });
+        add.active = exact.active = minecraft.player != null;
+        exact.setTooltip(Tooltip.create(Component.translatable("nomiss.exact.tooltip"))); rows.row(add, exact);
+        for (int i = 0; i < NoMissConfig.MAX_ITEMS; i++) {
+            final int slot = i; var selection = config().selection(slot);
+            var choose = action(Component.translatable("nomiss.slot", slot + 1).append(": ").append(WeaponRuleScreen.label(selection)), () -> minecraft.gui.setScreen(new WeaponRuleScreen(this, slot)));
+            choose.setTooltip(Tooltip.create(WeaponRuleScreen.label(selection)));
+            var clear = action(Component.literal("×"), () -> change(() -> config().setSelection(slot, WeaponSelection.empty())));
+            clear.active = !selection.isEmpty(); clear.setTooltip(Tooltip.create(Component.translatable("nomiss.clear_slot", slot + 1)));
+            rows.row(choose, clear);
+        }
+        rows.row(action("nomiss.defaults", () -> change(() -> config().resetItems())));
+        rows.row(action("nomiss.clear", () -> minecraft.gui.setScreen(new ConfirmScreen(yes -> {
+            if (yes) { config().clearItems(); save(); } minecraft.gui.setScreen(this);
+        }, Component.translatable("nomiss.clear"), Component.translatable("nomiss.clear.confirm")))));
+    }
+    private void profiles() {
+        option(NoMissConfig.Option.AUTO_SERVER);
+        if (config().currentServer() != null) {
+            String assigned = config().serverProfiles().get(config().currentServer());
+            String name = config().profiles().stream().filter(p -> p.id().equals(assigned)).map(NoMissProfile::name).findFirst().orElse("—");
+            rows.note(Component.translatable("nomiss.server.assignment", config().currentServer(), name));
+        } else rows.note(Component.translatable("nomiss.server.unavailable"));
+        var remember = action("nomiss.server.remember", () -> change(() -> config().rememberServer()));
+        var forget = action("nomiss.server.forget", () -> change(() -> config().forgetServer()));
+        remember.active = forget.active = config().currentServer() != null; rows.row(remember); rows.row(forget);
+        rows.row(action("nomiss.profile.create", () -> prompt("nomiss.profile.create", "", name -> { var p = config().addProfile(name, false); config().activateProfile(p.id()); save(); })));
+        rows.row(action("nomiss.profile.duplicate", () -> prompt("nomiss.profile.duplicate", config().activeProfile().name(), name -> { var p = config().addProfile(name, true); config().activateProfile(p.id()); save(); })));
+        rows.row(action("nomiss.profile.preset", () -> minecraft.gui.setScreen(new PresetScreen(this))));
+        for (var profile : config().profiles()) {
+            var activate = action(Component.literal((profile == config().activeProfile() ? "✓ " : "") + profile.name()), () -> change(() -> config().activateProfile(profile.id())));
+            activate.setTooltip(Tooltip.create(Component.translatable("nomiss.profile.use", profile.name())));
+            var rename = action("nomiss.profile.rename", () -> prompt("nomiss.profile.rename", profile.name(), name -> { profile.rename(name); save(); }));
+            var delete = action(Component.literal("×"), () -> minecraft.gui.setScreen(new ConfirmScreen(yes -> {
+                if (yes) { config().deleteProfile(profile.id()); save(); } minecraft.gui.setScreen(this);
+            }, Component.translatable("nomiss.profile.delete"), Component.translatable("nomiss.profile.delete.confirm", profile.name()))));
+            delete.active = config().profiles().size() > 1; delete.setTooltip(Tooltip.create(Component.translatable("nomiss.profile.delete"))); rows.row(activate, rename, delete);
+        }
+        rows.row(action("nomiss.export", () -> { minecraft.keyboardHandler.setClipboard(config().toJson(true)); feedback = Component.translatable("nomiss.export.done"); }));
+        rows.row(action("nomiss.import", this::previewImport));
+    }
+    private void prompt(String key, String initial, Consumer<String> accept) { minecraft.gui.setScreen(new TextPromptScreen(this, Component.translatable(key), initial, accept)); }
+    private void previewImport() {
+        try {
+            var imported = NoMissConfig.parse(minecraft.keyboardHandler.getClipboard(), true);
+            minecraft.gui.setScreen(new ConfirmScreen(yes -> {
+                if (yes) {
+                    try { NoMissClient.importSettings(imported); feedback = Component.translatable("nomiss.import.done"); }
+                    catch (IOException e) { feedback = Component.translatable("nomiss.import.failed"); }
+                }
+                minecraft.gui.setScreen(this);
+            }, Component.translatable("nomiss.import"), Component.translatable("nomiss.import.confirm", imported.profiles().size())));
+        } catch (IOException e) { feedback = Component.translatable("nomiss.import.invalid"); }
+    }
+    private void hud() {
+        option(NoMissConfig.Option.STATUS); option(NoMissConfig.Option.BLOCKED_HINTS); option(NoMissConfig.Option.PROTECTED_ITEM);
+        var h = config().hud();
+        rows.row(action(Component.translatable("nomiss.hud.corner", Component.translatable("nomiss.corner." + h.corner().name().toLowerCase(java.util.Locale.ROOT))), () -> change(() -> h.setCorner(HudSettings.Corner.values()[(h.corner().ordinal() + 1) % 4]))),
+            action("controls.reset", () -> change(() -> h.setCorner(HudSettings.Corner.TOP_LEFT))));
+        rows.row(action(Component.translatable("nomiss.hud.scale", h.scale()), () -> change(() -> h.setScale(h.scale() >= 200 ? 50 : Math.min(200, h.scale() + 25)))),
+            action("controls.reset", () -> change(() -> h.setScale(100))));
+        rows.row(action(Component.translatable("nomiss.hud.opacity", h.opacity()), () -> change(() -> h.setOpacity(h.opacity() >= 100 ? 20 : Math.min(100, h.opacity() + 20)))),
+            action("controls.reset", () -> change(() -> h.setOpacity(100))));
+    }
+    @Override public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         super.extractRenderState(graphics, mouseX, mouseY, delta);
         graphics.textRenderer().accept(TextAlignment.CENTER, width / 2, 12, title);
-        graphics.textRenderer().acceptScrollingWithDefaultCenter(saveFailed
-            ? Component.translatable("nomiss.save_failed")
-            : feedback != null ? feedback : Component.translatable("nomiss.count", config.items().size(), NoMissConfig.MAX_ITEMS),
-            (width - contentWidth) / 2, (width + contentWidth) / 2, 30, 50);
+        Component line = feedback != null ? feedback : Component.translatable("nomiss.page.summary", config().activeProfile().name(), config().items().size(), NoMissConfig.MAX_ITEMS);
+        graphics.textRenderer().acceptScrollingWithDefaultCenter(line, (width - contentWidth) / 2, (width + contentWidth) / 2, 54, 74);
     }
-
     @Override public void onClose() { minecraft.gui.setScreen(parent); }
-
-    private final class SlotList extends ContainerObjectSelectionList<SettingsEntry> {
-        private SlotList(Minecraft client, int width, int height, int top) { super(client, width, height, top, 30); }
-        private void addSlot(int slot) { addEntry(new SlotEntry(slot)); }
-        private void addOption(NoMissConfig.Option option) { addEntry(new OptionEntry(option)); }
-        private void addKeyBinds() { addEntry(new KeyBindsEntry()); }
-        @Override public int getRowWidth() { return getWidth() - 16; }
-    }
-
-    private abstract class SettingsEntry extends ContainerObjectSelectionList.Entry<SettingsEntry> {}
-
-    private final class OptionEntry extends SettingsEntry {
-        private final Button toggle;
-        private final Button reset;
-
-        private OptionEntry(NoMissConfig.Option option) {
-            toggle = Button.builder(label(option), button -> {
-                config.setOption(option, !config.option(option)); save();
-                button.setMessage(label(option)); updateReset(option);
-            }).bounds(0, 0, 100, 22).tooltip(Tooltip.create(Component.translatable(option.translationKey + ".tooltip"))).build();
-            reset = Button.builder(Component.translatable("controls.reset"), button -> {
-                config.resetOption(option); save(); toggle.setMessage(label(option)); button.active = false;
-            }).bounds(0, 0, 52, 22).tooltip(Tooltip.create(Component.translatable("nomiss.reset.tooltip"))).build();
-            reset.active = config.option(option) != option.defaultValue;
-        }
-
-        private void updateReset(NoMissConfig.Option option) { reset.active = config.option(option) != option.defaultValue; }
-
-        private Component label(NoMissConfig.Option option) {
-            return Component.translatable(option.translationKey, Component.translatable(config.option(option) ? "options.on" : "options.off"));
-        }
-
-        @Override public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float delta) {
-            toggle.setX(getContentX()); toggle.setY(getContentY()); toggle.setWidth(getContentWidth() - 56);
-            reset.setX(getContentRight() - 52); reset.setY(getContentY());
-            toggle.extractRenderState(graphics, mouseX, mouseY, delta); reset.extractRenderState(graphics, mouseX, mouseY, delta);
-        }
-        @Override public List<? extends GuiEventListener> children() { return List.of(toggle, reset); }
-        @Override public List<? extends NarratableEntry> narratables() { return List.of(toggle, reset); }
-        @Override public void visitWidgets(java.util.function.Consumer<net.minecraft.client.gui.components.AbstractWidget> visitor) {
-            visitor.accept(toggle); visitor.accept(reset);
-        }
-    }
-
-    private final class KeyBindsEntry extends SettingsEntry {
-        private final Button button = Button.builder(Component.translatable("nomiss.keybinds"), button ->
-            minecraft.gui.setScreen(new KeyBindsScreen(NoMissScreen.this, minecraft.options))).bounds(0, 0, 100, 22)
-            .tooltip(Tooltip.create(Component.translatable("nomiss.keybinds.tooltip"))).build();
-        @Override public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float delta) {
-            button.setX(getContentX()); button.setY(getContentY()); button.setWidth(getContentWidth());
-            button.extractRenderState(graphics, mouseX, mouseY, delta);
-        }
-        @Override public List<? extends GuiEventListener> children() { return List.of(button); }
-        @Override public List<? extends NarratableEntry> narratables() { return List.of(button); }
-        @Override public void visitWidgets(java.util.function.Consumer<net.minecraft.client.gui.components.AbstractWidget> visitor) { visitor.accept(button); }
-    }
-
-    private final class SlotEntry extends SettingsEntry {
-        private final Button select;
-        private final Button clear;
-        private final ItemStack stack;
-        private final Component label;
-
-        private SlotEntry(int slot) {
-            String id = config.itemAt(slot);
-            Identifier key = Identifier.tryParse(id);
-            stack = key != null && BuiltInRegistries.ITEM.containsKey(key)
-                ? ItemPreview.of(BuiltInRegistries.ITEM.getValue(key)) : ItemStack.EMPTY;
-            label = Component.translatable("nomiss.slot", slot + 1).append(": ").append(id.isEmpty()
-                ? Component.translatable("nomiss.empty")
-                : stack.isEmpty() ? Component.literal(id) : stack.getHoverName());
-            select = Button.builder(Component.translatable("nomiss.select"), button ->
-                minecraft.gui.setScreen(new ItemPickerScreen(NoMissScreen.this, slot))).bounds(0, 0, 100, 22).build();
-            select.setTooltip(Tooltip.create(label));
-            clear = Button.builder(Component.literal("×"), button -> {
-                config.setItem(slot, ""); save(); rebuildWidgets();
-            }).bounds(0, 0, 22, 22).tooltip(Tooltip.create(Component.translatable("nomiss.clear_slot", slot + 1))).build();
-            clear.active = !id.isEmpty();
-        }
-
-        @Override
-        public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float delta) {
-            int selectWidth = Math.min(100, getContentWidth() / 3);
-            clear.setX(getContentRight() - 22); clear.setY(getContentY());
-            select.setX(getContentRight() - selectWidth - 26); select.setY(getContentY()); select.setWidth(selectWidth);
-            graphics.item(stack, getContentX(), getContentY() + 3);
-            graphics.textRenderer().acceptScrollingWithDefaultCenter(label, getContentX() + 22,
-                select.getX() - 6, getContentY(), getContentY() + 22);
-            select.extractRenderState(graphics, mouseX, mouseY, delta);
-            clear.extractRenderState(graphics, mouseX, mouseY, delta);
-        }
-
-        @Override public List<? extends GuiEventListener> children() { return List.of(select, clear); }
-        @Override public List<? extends NarratableEntry> narratables() { return List.of(select, clear); }
-        @Override public void visitWidgets(java.util.function.Consumer<net.minecraft.client.gui.components.AbstractWidget> visitor) {
-            visitor.accept(select); visitor.accept(clear);
-        }
-    }
 }
