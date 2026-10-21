@@ -1,6 +1,9 @@
 # NoMiss 1.2
 
-Client-side Fabric mod for **Minecraft 26.2 and 26.3**. Prevent wasted attacks with selected weapons, categories, or exact items. Vanilla damage, reach and server rules remain in control; attacks are never queued or performed automatically.
+Client-side mod with the original universal Fabric build for **Minecraft 26.2 and 26.3**, plus exact-version Fabric/Legacy Fabric backports. Prevent wasted attacks with selected weapons, categories, or exact items. Vanilla damage, reach and server rules remain in control; attacks are never queued or performed automatically.
+
+Additional version downloads are collected in the [existing v1.2 release](https://github.com/qemvix/NoMiss/releases/tag/v1.2). See the [backport requirements](backports/README.md) and [per-edition validation table](backports/VALIDATION.md) before choosing an edition. The backports have limited representative client/UI checks; full gameplay testing is incomplete.
+
 
 ## Install
 

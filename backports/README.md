@@ -1,6 +1,6 @@
 # NoMiss 1.2 version ports
 
-These projects keep version-specific adapters apart from the existing root build for Minecraft 26.2/26.3. **The backports are work in progress, not supported downloads yet.** See [STATUS.md](STATUS.md) for validation and blockers.
+These projects keep version-specific adapters apart from the existing root build for Minecraft 26.2/26.3. **45 additional editions have completed real API builds, tests and production package/mixin audits.** Their downloads are collected in the [existing v1.2 release](https://github.com/qemvix/NoMiss/releases/tag/v1.2). Full gameplay testing is incomplete. See [VALIDATION.md](VALIDATION.md) for exact per-edition coverage and [STATUS.md](STATUS.md) for remaining work. **1.19.3, 1.19.1 and 1.7.9 are omitted.**
 
 `targets.py` records all 48 additional requested releases: every official release from 1.19 through 1.21.11, 26.1 and 26.1.2, and every official release from 1.6 through 1.8.9. The latter range begins at 1.6.1: there was no final release named simply 1.6 or 1.7.
 
@@ -51,7 +51,7 @@ python3 -m unittest discover -s backports/tests -p 'test_*.py' -v
 
 This command compiles only Minecraft-independent configuration/rules and parses the client sources. It **does not** validate Minecraft APIs, mappings, mixins, loader startup, or gameplay. First use downloads Gson and JUnit from Maven Central, verifying their published checksums. Results live under `backports/build/offline-check/`.
 
-Build the ports and collect only JARs that pass unit tests and package/mixin audits:
+Build the ports and collect only JARs that pass unit tests and package/mixin audits (use `--output PATH` to keep independent run reports separate):
 
 ```sh
 python3 backports/build_matrix.py --java-home "$JAVA_HOME"
@@ -80,3 +80,13 @@ Builds need the usual Maven/Gradle hosts plus `maven.fabricmc.net`, `meta.fabric
 ## Release plan
 
 Update master directly and retain the existing `v1.2` release. Once builds and client checks pass, collect the downloads under the title **1.2 - the updates update**, with notes focused on added version support, loader/Java requirements, and confirmed omissions. Preserve the existing 26.2/26.3 artifact. Do not move the release tag to an unverified checkpoint.
+
+## Isolated Windows client checks
+
+`launch_smoke.py` launches an audited production JAR in `backports/build/client-smoke/MINECRAFT`, with official checksum-verified libraries/assets and a specified Java runtime. It does not read account tokens or modify installed Minecraft profiles, mods, configuration or worlds. It opens a visible game window and closes that process after the specified interval.
+
+```powershell
+py backports/launch_smoke.py 1.8.9 path/to/nomiss-1.8.9-legacy-fabric-1.2.jar --java-home 'C:\path\to\java-17' --ui-jdk 'C:\path\to\jdk-25' --seconds 60
+```
+
+`--ui-jdk` compiles a separate test-only mod using `client_ui_smoke.py` and `tests/client/UiChecks.java`. It opens/renders all four settings pages, item icons and a narrowed search. Legacy checks also verify that durability/repair-cost changes retain the exact-item signature while renaming changes it. The test mod is never bundled into NoMiss downloads. These are client/UI checks, not full gameplay tests. A running process alone is not a gameplay pass.

@@ -38,7 +38,7 @@ public final class LegacyMatcher {
                 var compound = new JsonObject();
                 var values = ((NbtCompoundAccessor) stack.getNbt()).nomiss$data();
                 for (String key : new TreeSet<>(values.keySet())) if (!key.equals("Damage") && !key.equals("RepairCost")) compound.add(key, nbt(values.get(key)));
-                object.add("nbt", compound);
+                if (compound.size() > 0) object.add("nbt", compound);
             }
             // Old metadata selects item variants. Damageable items use it only for durability.
             if (stack.getMaxDamage() <= 0) object.addProperty("metadata", stack.getDamage());

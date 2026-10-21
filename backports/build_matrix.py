@@ -27,8 +27,8 @@ def find_game_jar(cache, mc):
     return candidates[0]
 
 
-def build(versions, java_home, cache, keep_going):
-    output = ROOT / 'backports/build/matrix'
+def build(versions, java_home, cache, keep_going, output=None):
+    output = output or ROOT / 'backports/build/matrix'
     output.mkdir(parents=True, exist_ok=True)
     dist = output / 'downloads'
     dist.mkdir(exist_ok=True)
@@ -79,5 +79,6 @@ if __name__ == '__main__':
     parser.add_argument('--java-home', type=Path, default=Path(os.environ.get('JAVA_HOME', '/usr/lib/jvm/java-21-openjdk-amd64')))
     parser.add_argument('--gradle-cache', type=Path, default=Path(os.environ.get('GRADLE_USER_HOME', str(Path.home() / '.gradle'))))
     parser.add_argument('--keep-going', action='store_true')
+    parser.add_argument('--output', type=Path, help='Separate logs/results/downloads directory for this run')
     args = parser.parse_args()
-    build(args.versions or list(TARGETS), args.java_home.resolve(), args.gradle_cache.resolve(), args.keep_going)
+    build(args.versions or list(TARGETS), args.java_home.resolve(), args.gradle_cache.resolve(), args.keep_going, args.output.resolve() if args.output else None)

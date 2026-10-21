@@ -116,7 +116,11 @@ def generate(mc, output):
             text = text.replace('graphics.fill(', 'net.minecraft.client.gui.GuiComponent.fill(graphics, ')
             text = text.replace('graphics.drawString(client.font, ', 'client.font.drawShadow(graphics, ')
             text = text.replace('graphics.renderItem(choice.stack(), ', 'Minecraft.getInstance().getItemRenderer().renderAndDecorateItem(choice.stack(), ')
+        if (1, 19, 3) <= v < (1, 20):
+            text = text.replace('renderAndDecorateItem(choice.stack(), ', 'renderAndDecorateItem(graphics, choice.stack(), ')
         if v < (1, 19, 3):
+            if path.name == 'AccessibilityOptionsScreenMixin.java':
+                text = text.replace('method = "init"', 'method = "createFooter"')
             text = text.replace('import net.minecraft.core.registries.BuiltInRegistries;', 'import net.minecraft.core.Registry;')
             text = text.replace('import net.minecraft.core.registries.Registries;\n', '')
             text = text.replace('BuiltInRegistries.ITEM', 'Registry.ITEM').replace('Registries.ITEM', 'Registry.ITEM_REGISTRY')

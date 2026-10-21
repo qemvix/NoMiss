@@ -2,6 +2,7 @@
 """Generate the LWJGL2/Legacy Fabric client adapters. Requires API compilation before release."""
 import argparse
 import json
+import re
 from pathlib import Path
 import shutil
 
@@ -28,6 +29,8 @@ def generate(mc, output):
             text = text.replace('Item.REGISTRY.getIdentifier(', 'Item.REGISTRY.getId(')
             text = text.replace('.drawWithShadow(', '.method_956(')
             text = text.replace('itemRenderer.renderInGuiWithOverrides(choice.icon(), x, y)', 'itemRenderer.method_6920(textRenderer, client.getTextureManager(), choice.icon(), x, y)')
+        if v == (1, 7, 2):
+            text = text.replace('new Window(client, client.width, client.height)', 'new Window(client.options, client.width, client.height)')
         if v < (1, 7):
             text = text.replace('Items.DIAMOND_', 'Item.DIAMOND_')
             text = text.replace('new Window(client, client.width, client.height)', 'new Window(client.options, client.width, client.height)')
@@ -47,6 +50,23 @@ def generate(mc, output):
                 text = text.replace('method = "handleBlockBreaking"', 'method = "method_2925"')
                 text = text.replace('private void nomiss$mine(boolean active, CallbackInfo ci)', 'private void nomiss$mine(int button, boolean active, CallbackInfo ci)')
                 text = text.replace('if (active && LegacyClient.blockMining())', 'if (button == 0 && active && LegacyClient.blockMining())')
+        # 1.7.2-1.7.9 has a distinct screen hierarchy, with unmapped API members
+        # in published generation-1 Yarn. These names come from those actual games.
+        if (1, 7, 2) <= v < (1, 7, 10):
+            if path.name in ('LegacyScreen.java', 'SettingsMixin.java'):
+                names = {
+                    'client': 'field_22534', 'width': 'field_22535', 'height': 'field_22536',
+                    'buttons': 'field_22537', 'textRenderer': 'field_22540', 'itemRenderer': 'field_22533',
+                    'message': 'field_22510', 'active': 'field_22511',
+                    'init': 'method_21947', 'render': 'method_21925', 'keyPressed': 'method_21924',
+                    'buttonClicked': 'method_21930', 'renderBackground': 'method_21946',
+                    'setClipboard': 'method_21939', 'getClipboard': 'method_21941',
+                    'drawCenteredString': 'method_21881', 'drawWithShadow': 'method_21884', 'fill': 'method_21878',
+                }
+                text = re.sub(r'\b(' + '|'.join(names) + r')\b', lambda match: names[match[0]], text)
+                text = text.replace('net.minecraft.field_22534.', 'net.minecraft.client.')
+            if path.name == 'LegacyHud.java':
+                text = text.replace('fill(', 'method_21878(')
         path.write_text(text, encoding='utf-8')
     mixins = {'required': True, 'package': 'com.nomiss.legacy.mixin', 'compatibilityLevel': 'JAVA_17',
               'client': ['ClientMixin', 'OptionsMixin', 'HudMixin', 'SettingsMixin', 'NbtCompoundAccessor', 'NbtListAccessor', 'MinecraftAccessor'],
