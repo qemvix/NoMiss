@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import sys
 import time
 import urllib.error
@@ -64,8 +65,10 @@ class CurseForge:
                 raise ApiError(error.code, message) from None
 
 
-def tag_id(tags, name, required=True):
-    matches = {tag['id'] for tag in tags if tag.get('name') == name}
+def tag_id(tags, name, required=True, version_type_ids=None):
+    matches = {tag['id'] for tag in tags if tag.get('name') == name and
+               (version_type_ids is None or
+                tag.get('gameVersionTypeID', tag.get('gameVersionTypeId')) in version_type_ids)}
     if len(matches) > 1:
         raise ValueError(f'Ambiguous CurseForge version tag: {name}')
     if not matches:
@@ -78,16 +81,52 @@ def tag_id(tags, name, required=True):
     return value
 
 
-def make_metadata(edition, tags, channel):
+
+def scoped_type_ids(version_types, kind, version=None):
+    """Use the API taxonomy; names alone collide with Bukkit and other types."""
+    def normalized(value):
+        return re.sub(r'[^a-z0-9]+', '-', value.casefold()).strip('-')
+
+    matches = []
+    for entry in version_types:
+        names = {normalized(entry.get('name', '')), normalized(entry.get('slug', ''))}
+        if kind == 'minecraft':
+            keep = any(re.fullmatch(r'minecraft(?:-[0-9]+(?:-[0-9]+)?)?', name) for name in names)
+        elif kind == 'loader':
+            keep = bool(names & {'modloader', 'modloaders', 'mod-loader', 'mod-loaders'})
+        elif kind == 'java':
+            keep = 'java' in names
+        elif kind == 'environment':
+            keep = 'environment' in names
+        else:
+            raise ValueError('Unknown version type category: ' + kind)
+        if keep:
+            matches.append((entry, names))
+    if kind == 'minecraft' and version:
+        family = 'minecraft-' + '-'.join(version.split('.')[:2])
+        preferred = [(entry, names) for entry, names in matches if family in names]
+        if preferred:
+            matches = preferred
+    ids = {entry['id'] for entry, _ in matches}
+    if any(type(value) is not int or value <= 0 for value in ids):
+        raise ValueError('Invalid CurseForge version type ID')
+    return ids
+
+
+def make_metadata(edition, tags, channel, version_types):
     # Reuse the exact edition's audited provenance, requirements, and honest
     # gameplay limitations without making any request to Modrinth.
     common = shared.make_payload(edition, 'unused', channel)
-    required = [tag_id(tags, version) for version in edition['game_versions']]
-    legacy_tag = tag_id(tags, 'Legacy Fabric', required=False) if edition['loader'] == 'legacy-fabric' else None
-    loader_tag = legacy_tag or tag_id(tags, 'Fabric')
+    def resolve(name, kind, required=True):
+        scope = scoped_type_ids(version_types, kind, name)
+        return tag_id(tags, name, required=required, version_type_ids=scope)
+
+    required = [resolve(version, 'minecraft') for version in edition['game_versions']]
+    legacy_tag = resolve('Legacy Fabric', 'loader', required=False) if edition['loader'] == 'legacy-fabric' else None
+    loader_tag = legacy_tag or resolve('Fabric', 'loader')
     required.append(loader_tag)
     for optional in [f'Java {edition["java"]}', 'Client']:
-        value = tag_id(tags, optional, required=False)
+        value = resolve(optional, 'java' if optional.startswith('Java ') else 'environment', required=False)
         if value is not None:
             required.append(value)
     notes = common['changelog']
@@ -177,13 +216,17 @@ def _run(args, token, report):
     shared.save_report(args.report, report)
     api = CurseForge(token)
     tags = api.request('/api/game/versions')
-    if not isinstance(tags, list):
-        raise ValueError('CurseForge returned an unexpected game-version response')
+    version_types = api.request('/api/game/version-types')
+    if not isinstance(tags, list) or not isinstance(version_types, list):
+        raise ValueError('CurseForge returned an unexpected game-version/type response')
+    shared.save_report(args.report.with_name('version-tags.json'), {
+        'fetched_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+        'version_types': version_types, 'versions': tags})
     journal = load_journal(args.journal, args.project_id)
     report['phase'] = 'planning_submissions'
     # Build the entire plan and detect every journal/tag conflict before POST.
     for edition in editions:
-        metadata = make_metadata(edition, tags, args.channel)
+        metadata = make_metadata(edition, tags, args.channel, version_types)
         match = existing_record(journal, edition, metadata)
         report['entries'].append({'filename': edition['filename'], 'sha256': edition['sha256'],
                                   'metadata': metadata, 'action': 'skip_recorded' if match else 'submit',

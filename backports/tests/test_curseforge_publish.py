@@ -28,13 +28,19 @@ class CurseForgePublishingTest(unittest.TestCase):
                             sha256=hashlib.sha256(self.path.read_bytes()).hexdigest(),
                             minecraft='1.21.11', game_versions=['1.21.11'], loader='fabric', java=21,
                             tests_passed=4, original=False, optional_modmenu=True, loader_requirement='>=0.19.5')
-        self.tags = [{'id': i+1, 'name': name} for i,name in enumerate(['1.21.11','Fabric','Java 21','Client'])]
+        self.types = [
+            {'id': 100, 'name': 'Minecraft 1.21', 'slug': 'minecraft-1-21'},
+            {'id': 200, 'name': 'Modloader', 'slug': 'modloader'},
+            {'id': 300, 'name': 'Java', 'slug': 'java'},
+            {'id': 400, 'name': 'Environment', 'slug': 'environment'}]
+        self.tags = [{'id': i+1, 'name': name, 'gameVersionTypeID': (i+1)*100}
+                     for i,name in enumerate(['1.21.11','Fabric','Java 21','Client'])]
         self.args = SimpleNamespace(project_id=1756374, assets=self.root,
                                     report=self.root/'report.json', journal=self.root/'journal.json',
                                     channel='release', publish=True)
 
     def metadata(self, edition=None, tags=None):
-        return publisher.make_metadata(edition or self.edition, self.tags if tags is None else tags, 'release')
+        return publisher.make_metadata(edition or self.edition, self.tags if tags is None else tags, 'release', self.types)
 
     def record(self, state='accepted'):
         return {'sha256':self.edition['sha256'], 'gameVersions':self.metadata()['gameVersions'],
@@ -59,7 +65,7 @@ class CurseForgePublishingTest(unittest.TestCase):
 
     def test_dedicated_legacy_tag_is_used_when_available(self):
         edition = dict(self.edition, loader='legacy-fabric', java=17, optional_modmenu=False)
-        data = self.metadata(edition, self.tags+[{'id':99,'name':'Legacy Fabric'}])
+        data = self.metadata(edition, self.tags+[{'id':99,'name':'Legacy Fabric','gameVersionTypeID':200}])
         self.assertIn(99,data['gameVersions'])
         self.assertNotIn(2,data['gameVersions'])
 
@@ -75,7 +81,57 @@ class CurseForgePublishingTest(unittest.TestCase):
 
     def test_ambiguous_tag_fails_closed(self):
         with self.assertRaisesRegex(ValueError,'Ambiguous'):
-            self.metadata(tags=self.tags+[{'id':999,'name':'1.21.11'}])
+            self.metadata(tags=self.tags+[{'id':999,'name':'1.21.11','gameVersionTypeID':100}])
+
+    def test_duplicate_26_1_name_uses_minecraft_family_not_bukkit(self):
+        types = self.types + [
+            {'id': 500, 'name': 'Minecraft 26.1', 'slug': 'minecraft-26-1'},
+            {'id': 600, 'name': 'Bukkit 26.1', 'slug': 'bukkit-26-1'}]
+        tags = self.tags + [
+            {'id': 51, 'name': '26.1', 'gameVersionTypeID': 500},
+            {'id': 61, 'name': '26.1', 'gameVersionTypeID': 600}]
+        edition = dict(self.edition, minecraft='26.1', game_versions=['26.1'], java=25)
+        metadata = publisher.make_metadata(edition, tags, 'release', types)
+        self.assertIn(51, metadata['gameVersions'])
+        self.assertNotIn(61, metadata['gameVersions'])
+
+    def test_family_specific_type_is_preferred_over_generic_minecraft(self):
+        types = self.types + [{'id': 500, 'name': 'Minecraft', 'slug': 'minecraft'}]
+        tags = self.tags + [{'id': 99, 'name': '1.21.11', 'gameVersionTypeID': 500}]
+        metadata = publisher.make_metadata(self.edition, tags, 'release', types)
+        self.assertIn(1, metadata['gameVersions'])
+        self.assertNotIn(99, metadata['gameVersions'])
+
+    def test_missing_minecraft_scope_does_not_fall_back_to_untyped_name(self):
+        with self.assertRaisesRegex(ValueError, 'required tag: 1.21.11'):
+            publisher.make_metadata(self.edition, self.tags, 'release', self.types[1:])
+
+    def test_duplicate_loader_java_environment_names_use_their_own_types(self):
+        tags = self.tags + [
+            {'id': 91, 'name': 'Fabric', 'gameVersionTypeID': 100},
+            {'id': 92, 'name': 'Java 21', 'gameVersionTypeID': 100},
+            {'id': 93, 'name': 'Client', 'gameVersionTypeID': 100}]
+        self.assertEqual(self.metadata(tags=tags)['gameVersions'], [1,2,3,4])
+
+    def test_calendar_year_family_is_valid_without_matching_bukkit(self):
+        types = [
+            {'id': 500, 'name': 'Minecraft 26', 'slug': 'minecraft-26'},
+            {'id': 600, 'name': 'Bukkit 26', 'slug': 'bukkit-26'}]
+        self.assertEqual(publisher.scoped_type_ids(types, 'minecraft', '26.1'), {500})
+
+    def test_patch_release_uses_parent_minecraft_family(self):
+        types = [{'id': 500, 'name': 'Minecraft 26.1', 'slug': 'minecraft-26-1'}]
+        self.assertEqual(publisher.scoped_type_ids(types, 'minecraft', '26.1.2'), {500})
+
+    def test_authenticated_run_saves_only_nonsecret_version_taxonomy(self):
+        api = self.fake_api()
+        self.args.publish = False
+        self.run_fake(api)
+        text = (self.root/'version-tags.json').read_text()
+        saved = json.loads(text)
+        self.assertEqual(saved['version_types'], self.types)
+        self.assertEqual(saved['versions'], self.tags)
+        self.assertNotIn('test-token', text)
 
     def test_multipart_uses_metadata_part_and_exact_bytes(self):
         metadata=self.metadata()
@@ -123,6 +179,8 @@ class CurseForgePublishingTest(unittest.TestCase):
             def request(self,route,data=None,content_type=None):
                 if route=='/api/game/versions':
                     return test.tags
+                if route=='/api/game/version-types':
+                    return test.types
                 if route=='/api/projects/1756374/upload-file' and data:
                     self.posts+=1
                     if self.failure:
