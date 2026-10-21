@@ -1,0 +1,74 @@
+import groovy.json.JsonSlurper
+
+plugins {
+    id 'net.fabricmc.fabric-loom-remap' version '1.18.4' apply false
+    id 'net.fabricmc.fabric-loom' version '1.18.4' apply false
+}
+
+def mc = providers.gradleProperty('minecraft_version').get()
+def matrixText = providers.exec { commandLine 'python3', '../targets.py' }.standardOutput.asText.get()
+def target = new JsonSlurper().parseText(matrixText)[mc]
+if (target == null || target.loader != 'fabric') throw new GradleException("Unknown Fabric target: ${mc}")
+def unmapped = mc.startsWith('26.')
+apply plugin: unmapped ? 'net.fabricmc.fabric-loom' : 'net.fabricmc.fabric-loom-remap'
+
+repositories {
+    maven { url = 'https://maven.terraformersmc.com/releases/' }
+    mavenCentral()
+}
+loom { clientOnlyMinecraftJar() }
+
+def modernResources = unmapped || mc.tokenize('.').collect { it as int }.with { it[1] == 21 && it.size() > 2 && it[2] >= 9 }
+def modules = ['fabric-api-base', 'fabric-lifecycle-events-v1',
+               unmapped ? 'fabric-key-mapping-api-v1' : 'fabric-key-binding-api-v1',
+               modernResources ? 'fabric-resource-loader-v1' : 'fabric-resource-loader-v0']
+
+dependencies {
+    minecraft "com.mojang:minecraft:${mc}"
+    if (!unmapped) mappings loom.officialMojangMappings()
+    add(unmapped ? 'implementation' : 'modImplementation', 'net.fabricmc:fabric-loader:0.19.5')
+    modules.each { module ->
+        def dep = fabricApi.module(module, target.fabric_api)
+        add(unmapped ? 'implementation' : 'modImplementation', dep) { transitive = false }
+        include(dep) { transitive = false }
+    }
+    add(unmapped ? 'compileOnly' : 'modCompileOnly', "com.terraformersmc:modmenu:${target.modmenu}") { transitive = false }
+    testImplementation platform('org.junit:junit-bom:5.14.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+def generated = layout.buildDirectory.dir('generated')
+tasks.register('generatePort', Exec) {
+    inputs.files(fileTree('../../src/main'), fileTree('../../src/client'), fileTree('../templates/fabric'))
+    inputs.files('../generate_fabric.py', '../common.py', '../targets.py')
+    inputs.property('minecraftVersion', mc)
+    outputs.dir(generated)
+    commandLine 'python3', '../generate_fabric.py', mc, generated.get().asFile.absolutePath
+}
+sourceSets {
+    main {
+        java.setSrcDirs([generated.map { it.dir('java') }])
+        resources.setSrcDirs([generated.map { it.dir('resources') }])
+    }
+    test { java.setSrcDirs(['../tests/java']) }
+}
+tasks.withType(JavaCompile).configureEach { options.release = target.java as int }
+tasks.named('compileJava') { dependsOn 'generatePort' }
+tasks.named('processResources') { dependsOn 'generatePort' }
+java { withSourcesJar() }
+tasks.named('sourcesJar') { dependsOn 'generatePort' }
+base { archivesName = "nomiss-${mc}-fabric" }
+tasks.named('jar') { from('../../LICENSE') }
+test {
+    useJUnitPlatform()
+    systemProperty 'nomiss.categories', target.categories.join(',')
+}
+tasks.register('exportSmokeRuntime') {
+    dependsOn 'build'
+    def output = layout.buildDirectory.file('smoke-runtime.json')
+    outputs.file(output)
+    doLast {
+        output.get().asFile.text = groovy.json.JsonOutput.toJson(sourceSets.main.runtimeClasspath.files.collect { it.absolutePath })
+    }
+}

@@ -1,0 +1,65 @@
+import groovy.json.JsonSlurper
+
+plugins {
+    id 'net.fabricmc.fabric-loom-remap' version '1.16.1'
+    id 'legacy-looming' version '1.16.1'
+    id 'com.gradleup.shadow' version '9.2.2'
+}
+def mc = providers.gradleProperty('minecraft_version').get()
+def matrixText = providers.exec { commandLine 'python3', '../targets.py' }.standardOutput.asText.get()
+def target = new JsonSlurper().parseText(matrixText)[mc]
+if (target == null || target.loader != 'legacy-fabric') throw new GradleException("Unknown Legacy Fabric target: ${mc}")
+// No published generation-1 Yarn for 1.7.9. Never silently build it with another game's mappings.
+if (mc == '1.7.9') throw new GradleException('Minecraft 1.7.9 mapping compatibility remains unresolved; see backports/STATUS.md')
+repositories {
+    maven { url = 'https://maven.legacyfabric.net/' }
+    mavenCentral()
+}
+loom { clientOnlyMinecraftJar() }
+legacyLooming { intermediaryVersion = 1 }
+configurations { shade }
+dependencies {
+    minecraft "com.mojang:minecraft:${mc}"
+    mappings legacy.yarn(mc, 604)
+    modImplementation 'net.fabricmc:fabric-loader:0.20.1'
+    implementation 'com.google.code.gson:gson:2.10.1'
+    shade 'com.google.code.gson:gson:2.10.1'
+    testImplementation platform('org.junit:junit-bom:5.14.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+def generated = layout.buildDirectory.dir('generated')
+tasks.register('generatePort', Exec) {
+    inputs.files(fileTree('../../src/main'), fileTree('../templates/legacy'))
+    inputs.files('../generate_legacy.py', '../common.py', '../targets.py')
+    inputs.property('minecraftVersion', mc)
+    outputs.dir(generated)
+    commandLine 'python3', '../generate_legacy.py', mc, generated.get().asFile.absolutePath
+}
+sourceSets {
+    main {
+        java.setSrcDirs([generated.map { it.dir('java') }])
+        resources.setSrcDirs([generated.map { it.dir('resources') }])
+    }
+    test { java.setSrcDirs(['../tests/java', '../tests/legacy']) }
+}
+tasks.withType(JavaCompile).configureEach { options.release = 17 }
+tasks.named('compileJava') { dependsOn 'generatePort' }
+tasks.named('processResources') { dependsOn 'generatePort' }
+java { withSourcesJar() }
+tasks.named('sourcesJar') { dependsOn 'generatePort' }
+base { archivesName = "nomiss-${mc}-legacy-fabric" }
+tasks.named('jar') { from('../../LICENSE') }
+shadowJar {
+    configurations = [project.configurations.shade]
+    relocate 'com.google.gson', 'com.nomiss.libs.gson'
+    archiveClassifier = 'shadow'
+}
+remapJar {
+    dependsOn shadowJar
+    inputFile = shadowJar.archiveFile
+}
+test {
+    useJUnitPlatform()
+    systemProperty 'nomiss.categories', 'swords'
+}
