@@ -23,6 +23,8 @@ class ModrinthPublishingTest(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
+        self.result_dialog = patch.object(publisher, 'show_result').start()
+        self.addCleanup(patch.stopall)
         self.edition = dict(minecraft='1.21.11', game_versions=['1.21.11'], loader='fabric',
                             java=21, original=False, filename='nomiss-1.21.11-fabric-1.2.jar',
                             tests_passed=4, package_audit_passed=True, optional_modmenu=True,
@@ -62,7 +64,7 @@ class ModrinthPublishingTest(unittest.TestCase):
                 publisher.load_editions(self.root, {edition['filename']: edition['sha256']})
 
     def test_cancelled_dialog_never_starts_upload(self):
-        with patch.object(sys, 'argv', ['publisher', '--publish', '--token-dialog']), \
+        with patch.object(sys, 'argv', ['publisher', '--publish', '--token-dialog', '--report', str(self.root/'report.json')]), \
              patch.dict(publisher.os.environ, {}, clear=True), \
              patch.object(publisher, 'prompt_token_dialog', side_effect=RuntimeError('Token entry cancelled')), \
              patch.object(publisher, 'run') as upload, \
@@ -71,7 +73,7 @@ class ModrinthPublishingTest(unittest.TestCase):
             upload.assert_not_called()
 
     def test_dialog_token_is_passed_in_memory_without_logging(self):
-        with patch.object(sys, 'argv', ['publisher', '--publish', '--token-dialog']), \
+        with patch.object(sys, 'argv', ['publisher', '--publish', '--token-dialog', '--report', str(self.root/'report.json')]), \
              patch.dict(publisher.os.environ, {}, clear=True), \
              patch.object(publisher, 'prompt_token_dialog', return_value='example-private-token'), \
              patch.object(publisher, 'run', return_value=0) as upload, \
@@ -219,6 +221,43 @@ class ModrinthPublishingTest(unittest.TestCase):
              patch.object(publisher, 'trusted_checksums', return_value={}), \
              patch.object(publisher, 'prepare_file', side_effect=lambda e, _:e):
             return publisher.run(args, 'test-token')
+
+    def test_early_private_project_failure_is_saved_without_token(self):
+        edition = dict(self.edition, optional_modmenu=False)
+        api = self.fake_api([edition])
+        original_request = api.request
+        def request(route, data=None, content_type=None):
+            if route == '/project/nomiss':
+                raise publisher.ApiError(403, 'test-token lacks private project access')
+            return original_request(route, data, content_type)
+        api.request = request
+        with self.assertRaises(publisher.ApiError):
+            self.run_with_fake([edition], api, publish=True)
+        text = (self.root/'report.json').read_text()
+        report = json.loads(text)
+        self.assertEqual(report['mode'], 'publish')
+        self.assertFalse(report['complete'])
+        self.assertEqual(report['phase'], 'checking_project_access')
+        self.assertIn('403', report['error'])
+        self.assertNotIn('test-token', text)
+        self.assertEqual(api.posts, 0)
+
+    def test_failed_upload_error_and_current_file_are_preserved(self):
+        edition = dict(self.edition, optional_modmenu=False)
+        api = self.fake_api([edition])
+        original_request = api.request
+        def request(route, data=None, content_type=None):
+            if route == '/version' and data:
+                raise publisher.ApiError(503, 'temporary failure')
+            return original_request(route, data, content_type)
+        api.request = request
+        with self.assertRaises(publisher.ApiError):
+            self.run_with_fake([edition], api, publish=True)
+        report = json.loads((self.root/'report.json').read_text())
+        self.assertEqual(report['phase'], 'uploading')
+        self.assertEqual(report['current_file'], edition['filename'])
+        self.assertIn('503', report['error'])
+        self.assertFalse(report['complete'])
 
     def test_dry_run_never_posts(self):
         edition = dict(self.edition, optional_modmenu=False)

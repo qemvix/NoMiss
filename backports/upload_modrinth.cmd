@@ -12,7 +12,10 @@ setlocal
  py -3 "%~dp0publish_modrinth.py" --project nomiss --publish --token-dialog
  if errorlevel 1 (
    echo.
-   echo Upload stopped. Read the error above; rerun this launcher to resume.
+   echo UPLOAD STOPPED. The error is shown in a separate window and saved locally.
+   echo Rerun this launcher after fixing the reported error.
+ ) else (
+   echo UPLOAD COMPLETE. All planned versions were confirmed.
  )
  echo.
  pause

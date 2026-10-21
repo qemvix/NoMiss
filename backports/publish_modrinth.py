@@ -232,23 +232,46 @@ def save_report(path, report):
 
 
 def run(args, token):
+    # Write before the first API call so early authentication failures cannot
+    # leave an old dry-run report looking like the result of a new upload.
+    report = {'project': args.project, 'mode': 'publish' if args.publish else 'dry-run',
+              'channel': args.channel, 'local_files_verified': 0, 'entries': [],
+              'complete': False, 'phase': 'validating_local_files',
+              'started_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
+    save_report(args.report, report)
+    try:
+        return _run(args, token, report)
+    except Exception as error:
+        message = str(error)
+        if token:
+            message = message.replace(token, '[redacted]')
+        report.update(complete=False, error=message)
+        save_report(args.report, report)
+        raise
+
+
+def _run(args, token, report):
     asset_dir = args.assets.resolve()
     editions = [prepare_file(e, asset_dir) for e in load_editions(asset_dir, trusted_checksums())]
     print(f'Local preflight: {len(editions)} verified JARs covering {sum(len(e["game_versions"]) for e in editions)} Minecraft releases.')
+    report.update(local_files_verified=len(editions), phase='checking_modrinth_tags')
+    save_report(args.report, report)
     api = Modrinth(token)
     game_versions = {x['version'] for x in api.request('/tag/game_version')}
     loaders = {x['name'] for x in api.request('/tag/loader')}
     for e in editions:
         if not set(e['game_versions']) <= game_versions or e['loader'] not in loaders:
             raise ValueError(f'Unsupported Modrinth compatibility tag: {e["filename"]}')
-    report = {'project': args.project, 'mode': 'publish' if args.publish else 'dry-run',
-              'channel': args.channel, 'local_files_verified': len(editions), 'entries': [], 'complete': False}
+    report['phase'] = 'checking_project_access'
+    save_report(args.report, report)
     try:
         project = api.request('/project/' + args.project)
+        report['phase'] = 'checking_existing_versions'
+        save_report(args.report, report)
         versions = api.request('/project/' + project['id'] + '/version')
     except ApiError as error:
         if error.status == 404 and not token and not args.publish:
-            report.update(remote_check='authentication_required', reason='Private/draft project requires its owner token.')
+            report.update(phase='authentication_required', remote_check='authentication_required', reason='Private/draft project requires its owner token.')
             for e in editions:
                 report['entries'].append({'filename': e['filename'], 'sha256': e['sha256'],
                                          'metadata': make_payload(e, args.project, args.channel),
@@ -262,6 +285,7 @@ def run(args, token):
         raise ValueError('The destination must be a Modrinth mod project')
     print(f'Destination: {project["title"]} ({project["id"]}); status: {project.get("status", "unknown")}')
     modmenu_id = api.request('/project/modmenu')['id'] if any(e['optional_modmenu'] for e in editions) else None
+    report['phase'] = 'planning_uploads'
     # Plan every entry before the first upload. Any conflict aborts the whole run.
     for e in editions:
         match = find_existing(e, versions)
@@ -275,6 +299,8 @@ def run(args, token):
         if entry['action'] == 'skip' or not args.publish:
             continue
         try:
+            report.update(phase='uploading', current_file=e['filename'])
+            save_report(args.report, report)
             data, content_type = multipart(entry['metadata'], e)
             created = api.request('/version', data, content_type)
             entry.update(action='uploaded_pending_verification', version_id=created['id'])
@@ -286,7 +312,8 @@ def run(args, token):
         except Exception:
             save_report(args.report, report)
             raise
-    report['complete'] = True
+    report.update(complete=True, phase='complete')
+    report.pop('current_file', None)
     save_report(args.report, report)
     print('Upload complete.' if args.publish else 'Dry run complete. No versions were uploaded.')
     print(f'Report: {args.report}')
@@ -346,6 +373,26 @@ def prompt_token_dialog():
     return result
 
 
+
+def show_result(message, failed=False):
+    """Keep the result visible after the token window closes."""
+    try:
+        import tkinter as tk
+        from tkinter import messagebox
+        root = tk.Tk()
+        root.withdraw()
+        try:
+            if failed:
+                messagebox.showerror('NoMiss upload stopped', message, parent=root)
+            else:
+                messagebox.showinfo('NoMiss upload complete', message, parent=root)
+        finally:
+            root.destroy()
+    except Exception:
+        # The console and saved report remain available if a dialog cannot open.
+        pass
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--project', default='nomiss', help='Modrinth project slug or ID')
@@ -370,13 +417,29 @@ def main():
                 token = getpass.getpass('Modrinth token (hidden; not saved): ').strip()
         if args.publish and not token:
             parser.error('Publishing requires MODRINTH_TOKEN, --token-dialog or --prompt-token. Never paste a token into chat.')
-        return run(args, token)
+        result = run(args, token)
+        if args.token_dialog and args.publish:
+            show_result('All planned uploads are confirmed. Existing identical versions were skipped.\n\nReport: ' + str(args.report))
+        return result
     except (ValueError, RuntimeError, OSError, EOFError, getpass.GetPassWarning, KeyError, zipfile.BadZipFile) as error:
         message = str(error)
         if token:
             message = message.replace(token, '[redacted]')
+        if isinstance(error, ApiError) and error.status in (401, 403):
+            message += '\nCheck the token permissions: Create Versions and private project/version read access, using the account that owns NoMiss.'
+        elif isinstance(error, ApiError) and error.status == 404:
+            message += '\nThis project is not visible to the token. Check its private-project access and the project slug/ID.'
         print('Stopped: ' + message, file=sys.stderr)
+        error_path = args.report.with_name('last-error.txt')
+        try:
+            error_path.parent.mkdir(parents=True, exist_ok=True)
+            error_path.write_text(message + '\n', encoding='utf-8')
+            print('Error saved: ' + str(error_path), file=sys.stderr)
+        except OSError:
+            pass
         print('Previously uploaded versions are preserved. Rerun the same command to resume safely.', file=sys.stderr)
+        if args.token_dialog:
+            show_result(message + '\n\nError file: ' + str(error_path), failed=True)
         return 1
 
 

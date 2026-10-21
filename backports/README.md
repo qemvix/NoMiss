@@ -111,7 +111,7 @@ py backports/publish_modrinth.py --project nomiss
 py backports/publish_modrinth.py --project nomiss --prompt-token
 ```
 
-Without authentication, private project checks remain explicitly pending; a 404 does not mean a new project should be created. No upload occurs unless `--publish` is present. Reports are saved to `backports/build/modrinth/report.json`, never including credentials.
+Without authentication, private project checks remain explicitly pending; a 404 does not mean a new project should be created. No upload occurs unless `--publish` is present. Reports are saved to `backports/build/modrinth/report.json`, never including credentials. A new report starts before validation/API calls, records the current phase, and preserves errors even when authentication fails early. The launcher also shows a final success/error dialog; errors are saved separately to `backports/build/modrinth/last-error.txt`.
 
 Each exact Minecraft edition gets a separate version entry with the correct `fabric` or `legacy-fabric` tag. The original JAR has both `26.2` and `26.3` tags. Display names retain **1.2 - the updates update**, and version identifiers such as `1.2+mc1.21.11.fabric` distinguish downloads while every JAR's internal mod version stays **1.2**. The default channel is `release`, matching the GitHub release; `--channel beta` or `--channel alpha` changes the channel for newly uploaded entries. Changelogs include minimum Java/loader requirements, per-edition validation limits, SHA-256, and legacy UI/cooldown adaptations. Mod Menu is optional where supported; bundled APIs do not become unnecessary external requirements.
 
