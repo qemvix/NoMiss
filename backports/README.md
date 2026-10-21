@@ -118,3 +118,35 @@ Each exact Minecraft edition gets a separate version entry with the correct `fab
 Before the first upload, the tool validates every local checksum, metadata/Java selector, accepted Modrinth compatibility tag, and existing version collision. Identical SHA-512 files with matching tags are skipped even if their existing version number is different. Conflicting files/version numbers stop the run without overwriting anything. Every successful upload is checked again using a separate API request. Repeating the same command resumes after interruption without reuploading already confirmed files. POST requests are not blindly retried after uncertain network failures.
 
 This uploader does not turn compile/package/UI evidence into a gameplay claim. Full gameplay testing of the additions remains incomplete; 1.19.1, 1.19.3 and 1.7.9 remain omitted. Review [VALIDATION.md](VALIDATION.md) for the precise coverage.
+
+## Upload the same verified editions to CurseForge from your PC
+
+Project: [NoMiss](https://www.curseforge.com/minecraft/mc-mods/nomiss), numeric project ID **1756374** (provided by the project owner).
+
+Double-click `backports/upload_curseforge.cmd`, or run:
+
+```powershell
+py backports/publish_curseforge.py --project-id 1756374 --publish --token-dialog
+```
+
+Create a **CurseForge author upload token** at [API Tokens](https://authors.curseforge.com/#/api-tokens), using an account with upload permission on this project. A Modrinth token or CFCore developer API key is a different credential and will not work. Paste the upload token into the local masked dialog with Ctrl+V, then click Continue. It is kept in memory, never put in a URL, saved, or printed. Unattended runs may use `CURSEFORGE_TOKEN`; `--prompt-token` provides the alternative hidden terminal prompt. A final dialog reports accepted submissions or an error, and redacted errors are saved to `backports/build/curseforge/last-error.txt`.
+
+A read-only preflight:
+
+```powershell
+py backports/publish_curseforge.py --project-id 1756374
+# Include authenticated version-tag checks without submitting:
+py backports/publish_curseforge.py --project-id 1756374 --token-dialog
+```
+
+The same 46 checksum-pinned JARs cover 47 Minecraft releases, including the unchanged original 26.2/26.3 download. No client is launched and no source is rebuilt. Without a token, file verification completes but CurseForge tag checks remain pending: the author upload API requires authentication even for `/api/game/versions`. The public project page also returned a Cloudflare 403 to automated reads on this PC; the uploader uses the documented author API instead. Neither an unauthenticated dry run nor mocked API tests establish that CurseForge has accepted a file.
+
+Before sending anything, the authenticated run resolves every exact Minecraft tag from the live API and stops if a required release/loader tag is missing or ambiguous. Legacy Fabric uses a dedicated tag if provided by the service; otherwise it uses the Fabric catalog tag, as CurseForge's [Legacy Fabric API project](https://www.curseforge.com/minecraft/mc-mods/legacy-fabric-api/files/9099642) does, while retaining explicit Legacy Fabric titles, filenames, Java requirements and install notes. Optional Java/Client tags are included where available; their absence never removes the actual requirements from the changelog. Unsupported editions are never relabeled to a nearby Minecraft release.
+
+CurseForge receives one primary file per edition with its exact version IDs, release channel, markdown changelog, SHA-256, and validation/feature limitations. Mod Menu is an optional relation on editions whose metadata supports it. The mod version remains **1.2**; full gameplay testing remains incomplete as recorded in [VALIDATION.md](VALIDATION.md).
+
+CurseForge's documented author upload endpoint returns a **file ID**, not a stored-file hash or a moderation approval. A successful response is recorded as **accepted for review**, not publicly approved or remotely hash-audited. Keep `backports/build/curseforge/journal.json`: it records each submission's checksum, compatibility tags and returned file ID, so reruns skip entries this uploader previously submitted successfully. It does **not** automatically discover files uploaded manually, on another PC, or through a lost journal. Existing downloads are never modified or deleted. If a matching download already exists outside the journal, resolve it in the author dashboard before submitting that edition again.
+
+The journal saves upload intent before each POST. A crash, timeout, malformed success response or server error can leave the outcome uncertain; the next run then stops rather than blindly sending the same file again. Check the author dashboard and resolve that one journal record before resuming. An explicit HTTP rejection is recorded separately and may be retried after correcting its cause. Reports live at `backports/build/curseforge/report.json`. Submission and moderator approval are separate steps.
+
+Implementation follows the [official CurseForge Upload API](https://support.curseforge.com/support/solutions/articles/9000197321): `X-Api-Token` authentication and multipart `metadata`/`file` fields. TLS/checksum verification and the configured proxy are preserved.

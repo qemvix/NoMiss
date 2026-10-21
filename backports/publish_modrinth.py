@@ -321,7 +321,7 @@ def _run(args, token, report):
 
 
 
-def prompt_token_dialog():
+def prompt_token_dialog(service="Modrinth"):
     """Use a normal masked entry so Windows Ctrl+V has visible feedback."""
     try:
         import tkinter as tk
@@ -332,11 +332,11 @@ def prompt_token_dialog():
         window = tk.Tk()
     except tk.TclError as error:
         raise RuntimeError('Cannot open the token dialog. Use --prompt-token in a local terminal instead.') from error
-    window.title('NoMiss - Modrinth token')
+    window.title(f'NoMiss - {service} token')
     window.resizable(False, False)
     frame = ttk.Frame(window, padding=20)
     frame.pack(fill='both', expand=True)
-    ttk.Label(frame, text='Paste your Modrinth token below with Ctrl+V.').pack(anchor='w')
+    ttk.Label(frame, text=f'Paste your {service} token below with Ctrl+V.').pack(anchor='w')
     ttk.Label(frame, text='It appears as dots and is not saved.').pack(anchor='w', pady=(0, 10))
     entry = ttk.Entry(frame, width=64, show='*')
     entry.pack(fill='x')
