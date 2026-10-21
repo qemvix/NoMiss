@@ -95,13 +95,13 @@ py backports/launch_smoke.py 1.8.9 path/to/nomiss-1.8.9-legacy-fabric-1.2.jar --
 
 `publish_modrinth.py` publishes only the files pinned by `v1.2-SHA256SUMS.txt`: 45 additional editions and the unchanged original 26.2/26.3 JAR (46 files, 47 Minecraft releases). It does not rebuild Minecraft, launch a client, change the project description/moderation status, modify existing versions, or use GitHub credentials. Missing files are fetched from the existing GitHub v1.2 release and verified before use.
 
-On Windows, double-click `backports/upload_modrinth.cmd`, or run:
+On Windows, double-click `backports/upload_modrinth.cmd`. A masked text box accepts Ctrl+V and shows dots as paste feedback. Click Continue to start. Or run:
 
 ```powershell
-py backports/publish_modrinth.py --project nomiss --publish --prompt-token
+py backports/publish_modrinth.py --project nomiss --publish --token-dialog
 ```
 
-Create a **Modrinth** personal access token in [Modrinth settings](https://modrinth.com/settings/pats) with **Create Versions** permission (`VERSION_CREATE`). For a private/draft project, also allow reading private projects/versions if the token settings offer those scopes. The account must have upload permission on the project. Enter the token only at the local hidden terminal prompt; it is not saved, printed, placed in command history, or sent to GitHub. An existing `MODRINTH_TOKEN` environment variable can be used instead of `--prompt-token` for unattended runs. Never commit a token or send it in chat.
+Create a **Modrinth** personal access token in [Modrinth settings](https://modrinth.com/settings/pats) with **Create Versions** permission (`VERSION_CREATE`). For a private/draft project, also allow reading private projects/versions if the token settings offer those scopes. The account must have upload permission on the project. Enter the token only in the local masked dialog; it is not saved, printed, placed in command history, or sent to GitHub. An existing `MODRINTH_TOKEN` environment variable can be used instead of `--token-dialog` for unattended runs. `--prompt-token` remains available for a hidden terminal prompt; characters are invisible there even after a successful paste. Never commit a token or send it in chat.
 
 A read-only plan needs no upload permission:
 

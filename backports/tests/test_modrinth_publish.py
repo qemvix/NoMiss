@@ -61,6 +61,35 @@ class ModrinthPublishingTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Unverified edition'):
                 publisher.load_editions(self.root, {edition['filename']: edition['sha256']})
 
+    def test_cancelled_dialog_never_starts_upload(self):
+        with patch.object(sys, 'argv', ['publisher', '--publish', '--token-dialog']), \
+             patch.dict(publisher.os.environ, {}, clear=True), \
+             patch.object(publisher, 'prompt_token_dialog', side_effect=RuntimeError('Token entry cancelled')), \
+             patch.object(publisher, 'run') as upload, \
+             patch.object(sys, 'stderr', io.StringIO()):
+            self.assertEqual(publisher.main(), 1)
+            upload.assert_not_called()
+
+    def test_dialog_token_is_passed_in_memory_without_logging(self):
+        with patch.object(sys, 'argv', ['publisher', '--publish', '--token-dialog']), \
+             patch.dict(publisher.os.environ, {}, clear=True), \
+             patch.object(publisher, 'prompt_token_dialog', return_value='example-private-token'), \
+             patch.object(publisher, 'run', return_value=0) as upload, \
+             patch.object(sys, 'stdout', io.StringIO()) as output, \
+             patch.object(sys, 'stderr', io.StringIO()) as errors:
+            self.assertEqual(publisher.main(), 0)
+            self.assertEqual(upload.call_args.args[1], 'example-private-token')
+            self.assertNotIn('example-private-token', output.getvalue() + errors.getvalue())
+            self.assertNotIn('MODRINTH_TOKEN', publisher.os.environ)
+
+    def test_default_dry_run_does_not_open_token_dialog(self):
+        with patch.object(sys, 'argv', ['publisher']), \
+             patch.dict(publisher.os.environ, {}, clear=True), \
+             patch.object(publisher, 'prompt_token_dialog') as dialog, \
+             patch.object(publisher, 'run', return_value=0):
+            self.assertEqual(publisher.main(), 0)
+            dialog.assert_not_called()
+
     def test_matching_bytes_skip_even_if_original_version_name_differs(self):
         existing = self.existing()
         existing['version_number'] = '1.2'

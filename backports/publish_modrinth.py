@@ -293,6 +293,59 @@ def run(args, token):
     return 0
 
 
+
+def prompt_token_dialog():
+    """Use a normal masked entry so Windows Ctrl+V has visible feedback."""
+    try:
+        import tkinter as tk
+        from tkinter import ttk
+    except ImportError as error:
+        raise RuntimeError('The token dialog needs tkinter. Use --prompt-token in a local terminal instead.') from error
+    try:
+        window = tk.Tk()
+    except tk.TclError as error:
+        raise RuntimeError('Cannot open the token dialog. Use --prompt-token in a local terminal instead.') from error
+    window.title('NoMiss - Modrinth token')
+    window.resizable(False, False)
+    frame = ttk.Frame(window, padding=20)
+    frame.pack(fill='both', expand=True)
+    ttk.Label(frame, text='Paste your Modrinth token below with Ctrl+V.').pack(anchor='w')
+    ttk.Label(frame, text='It appears as dots and is not saved.').pack(anchor='w', pady=(0, 10))
+    entry = ttk.Entry(frame, width=64, show='*')
+    entry.pack(fill='x')
+    error_text = tk.StringVar()
+    ttk.Label(frame, textvariable=error_text).pack(anchor='w', pady=(5, 0))
+    result = None
+
+    def accept(event=None):
+        nonlocal result
+        value = entry.get().strip()
+        if not value:
+            error_text.set('Paste a token first, or choose Cancel.')
+            return
+        result = value
+        entry.delete(0, tk.END)
+        window.destroy()
+
+    def cancel(event=None):
+        entry.delete(0, tk.END)
+        window.destroy()
+
+    buttons = ttk.Frame(frame)
+    buttons.pack(anchor='e', pady=(10, 0))
+    ttk.Button(buttons, text='Cancel', command=cancel).pack(side='left', padx=(0, 8))
+    ttk.Button(buttons, text='Continue', command=accept).pack(side='left')
+    window.bind('<Return>', accept)
+    window.bind('<Escape>', cancel)
+    window.protocol('WM_DELETE_WINDOW', cancel)
+    entry.focus_set()
+    window.lift()
+    window.mainloop()
+    if result is None:
+        raise RuntimeError('Token entry cancelled; nothing was uploaded.')
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--project', default='nomiss', help='Modrinth project slug or ID')
@@ -300,21 +353,25 @@ def main():
     parser.add_argument('--report', type=Path, default=ROOT / 'backports/build/modrinth/report.json')
     parser.add_argument('--channel', choices=['release', 'beta', 'alpha'], default='release')
     parser.add_argument('--publish', action='store_true', help='Upload missing versions; default is read-only')
-    parser.add_argument('--prompt-token', action='store_true', help='Read a token from a hidden local terminal prompt')
+    token_options = parser.add_mutually_exclusive_group()
+    token_options.add_argument('--prompt-token', action='store_true', help='Read a token from a hidden local terminal prompt')
+    token_options.add_argument('--token-dialog', action='store_true', help='Paste a token into a masked local window (requires tkinter)')
     args = parser.parse_args()
     if not re.fullmatch('[A-Za-z0-9_-]+', args.project):
         parser.error('--project must be a Modrinth slug or ID')
     token = os.environ.get('MODRINTH_TOKEN', '').strip()
-    if args.prompt_token:
-        # Refuse getpass's echoing fallback if no interactive terminal exists.
-        with warnings.catch_warnings():
-            warnings.simplefilter('error', getpass.GetPassWarning)
-            token = getpass.getpass('Modrinth token (hidden; not saved): ').strip()
-    if args.publish and not token:
-        parser.error('Publishing requires MODRINTH_TOKEN or --prompt-token. Never paste a token into chat.')
     try:
+        if args.token_dialog:
+            token = prompt_token_dialog()
+        elif args.prompt_token:
+            # Refuse getpass's echoing fallback if no interactive terminal exists.
+            with warnings.catch_warnings():
+                warnings.simplefilter('error', getpass.GetPassWarning)
+                token = getpass.getpass('Modrinth token (hidden; not saved): ').strip()
+        if args.publish and not token:
+            parser.error('Publishing requires MODRINTH_TOKEN, --token-dialog or --prompt-token. Never paste a token into chat.')
         return run(args, token)
-    except (ValueError, RuntimeError, OSError, KeyError, zipfile.BadZipFile) as error:
+    except (ValueError, RuntimeError, OSError, EOFError, getpass.GetPassWarning, KeyError, zipfile.BadZipFile) as error:
         message = str(error)
         if token:
             message = message.replace(token, '[redacted]')
