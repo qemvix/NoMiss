@@ -90,3 +90,31 @@ py backports/launch_smoke.py 1.8.9 path/to/nomiss-1.8.9-legacy-fabric-1.2.jar --
 ```
 
 `--ui-jdk` compiles a separate test-only mod using `client_ui_smoke.py` and `tests/client/UiChecks.java`. It opens/renders all four settings pages, item icons and a narrowed search. Legacy checks also verify that durability/repair-cost changes retain the exact-item signature while renaming changes it. The test mod is never bundled into NoMiss downloads. These are client/UI checks, not full gameplay tests. A running process alone is not a gameplay pass.
+
+## Upload the verified v1.2 editions to Modrinth from your PC
+
+`publish_modrinth.py` publishes only the files pinned by `v1.2-SHA256SUMS.txt`: 45 additional editions and the unchanged original 26.2/26.3 JAR (46 files, 47 Minecraft releases). It does not rebuild Minecraft, launch a client, change the project description/moderation status, modify existing versions, or use GitHub credentials. Missing files are fetched from the existing GitHub v1.2 release and verified before use.
+
+On Windows, double-click `backports/upload_modrinth.cmd`, or run:
+
+```powershell
+py backports/publish_modrinth.py --project nomiss --publish --prompt-token
+```
+
+Create a **Modrinth** personal access token in [Modrinth settings](https://modrinth.com/settings/pats) with **Create Versions** permission (`VERSION_CREATE`). For a private/draft project, also allow reading private projects/versions if the token settings offer those scopes. The account must have upload permission on the project. Enter the token only at the local hidden terminal prompt; it is not saved, printed, placed in command history, or sent to GitHub. An existing `MODRINTH_TOKEN` environment variable can be used instead of `--prompt-token` for unattended runs. Never commit a token or send it in chat.
+
+A read-only plan needs no upload permission:
+
+```powershell
+py backports/publish_modrinth.py --project nomiss
+# Authenticate to check duplicates inside a private project:
+py backports/publish_modrinth.py --project nomiss --prompt-token
+```
+
+Without authentication, private project checks remain explicitly pending; a 404 does not mean a new project should be created. No upload occurs unless `--publish` is present. Reports are saved to `backports/build/modrinth/report.json`, never including credentials.
+
+Each exact Minecraft edition gets a separate version entry with the correct `fabric` or `legacy-fabric` tag. The original JAR has both `26.2` and `26.3` tags. Display names retain **1.2 - the updates update**, and version identifiers such as `1.2+mc1.21.11.fabric` distinguish downloads while every JAR's internal mod version stays **1.2**. The default channel is `release`, matching the GitHub release; `--channel beta` or `--channel alpha` changes the channel for newly uploaded entries. Changelogs include minimum Java/loader requirements, per-edition validation limits, SHA-256, and legacy UI/cooldown adaptations. Mod Menu is optional where supported; bundled APIs do not become unnecessary external requirements.
+
+Before the first upload, the tool validates every local checksum, metadata/Java selector, accepted Modrinth compatibility tag, and existing version collision. Identical SHA-512 files with matching tags are skipped even if their existing version number is different. Conflicting files/version numbers stop the run without overwriting anything. Every successful upload is checked again using a separate API request. Repeating the same command resumes after interruption without reuploading already confirmed files. POST requests are not blindly retried after uncertain network failures.
+
+This uploader does not turn compile/package/UI evidence into a gameplay claim. Full gameplay testing of the additions remains incomplete; 1.19.1, 1.19.3 and 1.7.9 remain omitted. Review [VALIDATION.md](VALIDATION.md) for the precise coverage.
