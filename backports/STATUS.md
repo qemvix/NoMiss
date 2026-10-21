@@ -4,7 +4,7 @@ Development and testing ran locally in `C:\Users\elect\NoMiss`, freshly cloned f
 
 ## Release scope
 
-The user requested publication of completed builds and omission of unfinished editions. **45 additional editions are staged for the existing v1.2 release**, titled exactly **1.2 - the updates update**. The original 26.2/26.3 artifact, release tag, license and copyright notices are preserved. Publication status is recorded below after upload verification.
+The user requested publication of completed builds and omission of unfinished editions. **45 additional editions are published in the existing v1.2 release**, titled exactly **1.2 - the updates update**. The original 26.2/26.3 artifact, release tag, license and copyright notices are preserved. Publication is verified below.
 
 See [VALIDATION.md](VALIDATION.md) for the exact Minecraft/loader/Java matrix and per-edition evidence. Full gameplay testing remains incomplete; compilation and package auditing are not presented as gameplay verification.
 
@@ -13,7 +13,7 @@ See [VALIDATION.md](VALIDATION.md) for the exact Minecraft/loader/Java matrix an
 - Existing root 26.2 and 26.3 builds each compiled against real game APIs and passed 37 tests (34 rule/configuration plus three universal-package tests).
 - All 48 generated configurations passed 258 shared-rule checks, compiled with `javac --release 17` and executed on JDK 25. All 907 generated Java files syntax-parsed. These remain separate from game API builds.
 - Twelve Python artifact/cache-guard regression tests passed.
-- The 45 staged additions executed 243 tests across real API builds: four per modern edition, seven per legacy edition. Each final JAR passed metadata, exact version selector, minimum bytecode, bundled dependency, production mixin/signature and legacy Gson relocation audits.
+- The 45 published additions executed 243 tests across real API builds: four per modern edition, seven per legacy edition. Each final JAR passed metadata, exact version selector, minimum bytecode, bundled dependency, production mixin/signature and legacy Gson relocation audits.
 - Production 26.1 launched on Java 25 and reached resource/audio/atlas initialization without a mod load failure.
 - Production 1.21.11 on Java 21 and 1.8.9 on Java 17 passed all six test-only client render checks: General, Weapons, Profiles, HUD, picker icons and narrowed search.
 - The final 1.8.9 JAR additionally passed in-client exact-item checks: durability/repair-cost changes retained the signature; renaming changed it. Empty ignored-only NBT is normalized, so a first repair-cost tag does not break matching.
@@ -38,4 +38,13 @@ Only those three representative clients were launched. No backport is claimed fu
 
 ## Publication
 
-Prepared for the existing [v1.2 release](https://github.com/qemvix/NoMiss/releases/tag/v1.2). Upload verification and pushed source commits are recorded after publication completes.
+Published and verified in the existing [v1.2 release](https://github.com/qemvix/NoMiss/releases/tag/v1.2), release ID `418681142`, titled **1.2 - the updates update**.
+
+- Uploaded 45 new exact-version JARs, `SHA256SUMS.txt` and `validation-report.json`; all GitHub asset SHA-256 digests match local staged bytes.
+- The release now has 48 assets: 46 JARs (including the original universal JAR), checksums and validation report. This covers 45 new editions plus the existing 26.2/26.3 support.
+- Original asset ID `660048658`, size and SHA-256 are unchanged; the release tag object is unchanged.
+- Public checksum/validation downloads and representative modern/legacy JAR download bytes were fetched and verified after publication.
+- Implementation checkpoints pushed to master: `9972dab` and `203ed4e`. Release source is `203ed4eb65c0e1ca951f4e2151aa4bbb40911c26`; this final documentation checkpoint records publication without changing those artifact sources.
+- Checksums are also preserved in [v1.2-SHA256SUMS.txt](v1.2-SHA256SUMS.txt).
+
+No unfinished/failed edition was uploaded. Full gameplay validation remains incomplete as documented in the release and per-edition report.
