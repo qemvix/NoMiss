@@ -28,7 +28,7 @@ def generate(mc, output):
     shutil.copytree(ROOT / 'src/client/java', java, dirs_exist_ok=True)
     metadata(target, resources)
     for path in java.rglob('*.java'):
-        text = path.read_text()
+        text = path.read_text(encoding='utf-8')
         text = text.replace('.gui.setScreen(', '.setScreen(').replace('.gui.screen()', '.screen')
         text = text.replace('client.gui.hud.isHidden()', 'client.options.hideGui')
         text = text.replace('net.minecraft.client.gui.Hud;', 'net.minecraft.client.gui.Gui;')
@@ -92,7 +92,7 @@ def generate(mc, output):
             text = text.replace('import net.minecraft.client.DeltaTracker;\n', '').replace('DeltaTracker delta', 'float delta')
             text = text.replace('.screens.options.', '.screens.')
             if path.name == 'AccessibilityOptionsScreenMixin.java':
-                text = (ROOT / 'backports/templates/fabric/AccessibilityOptionsScreenMixin.java').read_text()
+                text = (ROOT / 'backports/templates/fabric/AccessibilityOptionsScreenMixin.java').read_text(encoding='utf-8')
         if v < (1, 20, 5) and path.name == 'WeaponMatcher.java':
             text = re.sub(r'^import net.minecraft.core.component.*\n', '', text, flags=re.M)
             start, end = text.index('            var components ='), text.index('            var digest =')
@@ -126,14 +126,14 @@ def generate(mc, output):
             if 'PortButton' in text and path.parent.name != 'gui':
                 text = text.replace('package com.nomiss.client.mixin;', 'package com.nomiss.client.mixin;\nimport com.nomiss.client.gui.PortButton;\nimport com.nomiss.client.gui.PortTooltip;')
             text = text.replace('search.setHint(Component.translatable("nomiss.search")); ', '')
-        path.write_text(text)
+        path.write_text(text, encoding='utf-8')
     template_dir = ROOT / 'backports/templates/fabric'
     if v < (1, 21, 11):
-        text = (template_dir / 'CompatText.java').read_text()
+        text = (template_dir / 'CompatText.java').read_text(encoding='utf-8')
         if v < (1, 20):
             text = text.replace('import net.minecraft.client.gui.GuiGraphics;', 'import com.mojang.blaze3d.vertex.PoseStack;').replace('GuiGraphics ', 'PoseStack ')
             text = text.replace('graphics.drawCenteredString(', 'net.minecraft.client.gui.GuiComponent.drawCenteredString(graphics, ')
-        (java / 'com/nomiss/client/gui/CompatText.java').write_text(text)
+        (java / 'com/nomiss/client/gui/CompatText.java').write_text(text, encoding='utf-8')
     if v < (1, 20, 5):
         shutil.copyfile(template_dir / 'ComponentFingerprint.java', java / 'com/nomiss/client/ComponentFingerprint.java')
     if v < (1, 19, 3):

@@ -1,38 +1,31 @@
-# Backport checkpoint — 2026-10-21
+# Local PC checkpoint — 2026-10-21
 
-The root 26.2/26.3 implementation and existing v1.2 download are unchanged.
+Work is now running locally in `C:\Users\elect\NoMiss`, freshly cloned from master `e77e2f249d32689c5d0f2e7311da107e2d2ffc83`. The previous local checkout was preserved as a recoverable backup. No cloud environment is used.
 
-## Restored source
+The existing root implementation, license, release tag and published 26.2/26.3 download are preserved. No new downloads have been published, and no new edition is yet claimed as gameplay verified.
 
-- Requested 48-release target matrix, isolated modern and Legacy Fabric Gradle projects, and reproducible source generators.
-- Modern API adapters covering the requested 1.19–1.21.11 and 26.1/26.1.2 targets.
-- Legacy client input, native settings/picker, profiles, server assignments, import/export, exact-item matching, HUD, and rebindable keys.
-- Shared-rule regression tests, syntax checks, build collection and package/mixin auditing tools.
+## Verified on this PC
 
-**All game-specific adapters remain unverified on this replacement machine.** Rebuilding from the lost environment's implementation notes is not evidence that these restored files compile or run.
+- Root builds for **both 26.2 and 26.3** succeeded against actual Minecraft APIs. Each ran 37 tests (34 configuration/rule tests plus three universal-package tests), with zero failures/errors.
+- The 48 generated configurations passed all **258 shared-rule checks**, compiled with `javac --release 17` and executed on JDK 25. All **907 generated Java sources** syntax-parsed. These checks alone do not validate Minecraft compatibility.
+- All 12 Python regression tests passed: seven artifact-auditor guards plus five production-cache selection checks.
+- Full builds, four tests per edition, and production-JAR package/mixin audits passed for **26.1, 26.1.2, 1.21.11, 1.21.10 and 1.21.8**.
+- **Legacy Fabric 1.8.9 and 1.7.10** compiled and produced remapped JARs, ran seven tests each, and passed production-JAR audits (including all seven injections/accessors and relocated Gson).
+- No representative client has been launched or gameplay-tested yet. Build/audit success is not a support claim.
 
-## Verified locally
+## Implemented in this checkpoint
 
-- 258 shared-rule regression checks passed across the 48 generated configurations (4 per modern edition, 7 per legacy edition), compiled with `javac --release 17` against Gson 2.8.9 and executed on JDK 25.
-- Syntax parsing passed for all 907 generated Java files. This does not resolve Minecraft APIs.
-- Seven artifact-auditor regression tests passed, including rejection of wrong Minecraft selectors, excessive Java bytecode levels, missing injection targets, mismatched injection parameters, missing dependencies and the wrong resource-loader generation.
-- Before restoring the backport files, the 34 existing Minecraft-independent root tests passed.
-- The existing 562,644-byte 26.2/26.3 release JAR was retrieved and its SHA-256 verified against `74112f6d8b6d77abf94c6a50fa1f103eff03dfd29ec98db5f7e95d0e491e3aeb`.
-- No new installable JARs have been built or uploaded from this checkpoint.
+- Native Windows Gradle-wrapper execution and configurable Python launcher; avoid broken Microsoft Store `python3` aliases.
+- Explicit UTF-8 generation/configuration I/O to avoid Windows code-page failures and corrupted labels.
+- Production Minecraft cache selection recognizes Windows paths and rejects the similarly named legacy development JAR. Ambiguous caches still fail closed.
+- Matrix test-report checks require all seven legacy tests (four on modern editions), excluding skipped tests.
+- Correct legacy option/keybinding packages, Options screen target, native widget visibility, item display names and icon renderer calls, based on real compilation and `javap` inspection. The 1.6 family uses pre-registry item constants.
 
-## Blocking full validation
+## Work continuing
 
-The live cloud network policy still lacks the custom Minecraft/Fabric domains. Actual requests to Fabric, Legacy Fabric and Mojang metadata fail with proxy `403 Forbidden`. The environment's saved draft contains the required domains, but the draft has not been applied to the live environment. Full Gradle builds require publishing/applying that configuration through the environment settings. A real 26.1 matrix build was attempted and failed during Fabric Loom plugin resolution before Minecraft compilation.
+1. Complete real API builds and strict package/mixin audits for all 48 requested targets; inspect `backports/build/matrix/` for local logs/results/checksums.
+2. Resolve 1.7.9's actual intermediary callback hierarchy. Official generation-1 and generation-2 Yarn metadata were queried on this PC; neither publishes a dedicated 1.7.9 Yarn build. Its explicit guard remains in place pending a correct solution.
+3. Launch representative production editions on their intended Java versions and test attack/mining rules, settings/picker/icons/search, bindings, profiles/server restoration, exact-item matching and HUD controls.
+4. Publish only verified downloads in the existing v1.2 release, with the exact title **1.2 - the updates update**. Preserve its existing artifact and tag.
 
-Minecraft 1.7.9 additionally has no published generation-1 Yarn mapping in the selected family. Reusing 1.7.10 names previously encountered a callback-method hierarchy conflict. Its Gradle target deliberately fails with an explicit error pending a correct mapping solution; do not remove the guard just to produce a JAR. Investigate generation-2 mappings or reconcile the actual intermediary hierarchy, then compile and launch that edition.
-
-## Work remaining
-
-1. Apply the saved environment network configuration.
-2. Compile each generated client against its actual Minecraft/loader dependencies and fix API/mapping errors.
-3. Resolve the 1.7.9 mapping issue.
-4. Run root builds for both 26.2 and 26.3; run all port tests and audits.
-5. Launch representative editions across GUI/input/API families and test attack blocking, permitted mining, profiles, bindings, item selection, exact matching, and HUD.
-6. Push tested changes to master, then update the existing v1.2 release title/notes/downloads. Report any confirmed feature omissions honestly.
-
-Source generation and shared configuration tests are completed checks; release compatibility is still pending.
+The old cloud proxy 403 failures are historical: Fabric, Legacy Fabric and Mojang are reachable from this PC. JDK 25 and Python 3.14 are installed locally. Client minimum-Java behavior remains to be tested separately.

@@ -25,6 +25,16 @@ bash gradlew -p backports/fabric -Pminecraft_version=1.21.11 clean build --no-da
 bash gradlew -p backports/legacy -Pminecraft_version=1.8.9 clean build --no-daemon --max-workers=2
 ```
 
+On Windows PowerShell, use `./gradlew.bat` and quote version properties:
+
+```powershell
+./gradlew.bat -p backports/fabric '-Pminecraft_version=1.21.11' clean build --no-daemon --max-workers=2
+./gradlew.bat -p backports/legacy '-Pminecraft_version=1.8.9' clean build --no-daemon --max-workers=2
+py backports/build_matrix.py 1.21.11 1.8.9 --java-home 'C:\path\to\jdk-25'
+```
+
+The projects use `py` on Windows and `python3` elsewhere. Override with `-Ppython_executable=/absolute/path/to/python` if needed. The matrix runner uses its own Python interpreter and selects the native Gradle wrapper. Source and configuration files are always read/written as UTF-8.
+
 Generate sources without downloading Minecraft:
 
 ```sh
@@ -65,7 +75,7 @@ Reports, logs, checksums and downloads are written to `backports/build/matrix/`.
 
 ## Network requirements
 
-Builds need the usual Maven/Gradle hosts plus `maven.fabricmc.net`, `meta.fabricmc.net`, `piston-meta.mojang.com`, `piston-data.mojang.com`, `libraries.minecraft.net`, `maven.terraformersmc.com`, `maven.legacyfabric.net`, and `meta.legacyfabric.net`. Client smoke tests also need Minecraft assets. Publish the environment's saved network configuration through its supported settings workflow; saving a draft does not apply it to a running machine.
+Builds need the usual Maven/Gradle hosts plus `maven.fabricmc.net`, `meta.fabricmc.net`, `piston-meta.mojang.com`, `piston-data.mojang.com`, `libraries.minecraft.net`, `maven.terraformersmc.com`, `maven.legacyfabric.net`, and `meta.legacyfabric.net`. Client smoke tests also need Minecraft assets. Check actual access on the build machine. The earlier cloud network-policy blocker does not apply to the current local PC, where these hosts are reachable.
 
 ## Release plan
 

@@ -23,7 +23,7 @@ public final class LegacyHud extends DrawableHelper {
         if (config.showStatus()) lines.add("NoMiss: " + (config.enabled() ? "ON" : "OFF") + " | " + config.activeProfile().name());
         if (config.option(NoMissConfig.Option.PROTECTED_ITEM)) {
             var held = LegacyClient.held();
-            lines.add((config.enabled() && LegacyMatcher.resolve(held) != null ? "Protected: " : "Unprotected: ") + (held == null ? "Empty hand" : held.getName()));
+            lines.add((config.enabled() && LegacyMatcher.resolve(held) != null ? "Protected: " : "Unprotected: ") + (held == null ? "Empty hand" : held.getCustomName()));
         }
         if (config.enabled() && config.showBlockedAttacks() && blockedTicks > 0 && reason != null)
             lines.add(reason == AttackProtection.BlockReason.BLOCKS_DISABLED ? "Block breaking disabled" : "No entity in reach");

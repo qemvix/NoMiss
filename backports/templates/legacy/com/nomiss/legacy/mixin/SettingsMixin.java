@@ -1,7 +1,7 @@
 package com.nomiss.legacy.mixin;
 import com.nomiss.legacy.*;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.options.SettingsScreen;
+import net.minecraft.client.gui.screen.SettingsScreen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.*;

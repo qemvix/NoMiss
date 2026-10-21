@@ -15,11 +15,11 @@ def generate(mc, output):
         shutil.rmtree(output)
     java, resources = copy_shared(target, output)
     metadata(target, resources, legacy=True)
-    translations = json.loads((resources / 'assets/nomiss/lang/en_us.json').read_text())
-    (resources / 'assets/nomiss/lang/en_US.lang').write_text(''.join(f'{key}={value}\n' for key, value in translations.items()))
+    translations = json.loads((resources / 'assets/nomiss/lang/en_us.json').read_text(encoding='utf-8'))
+    (resources / 'assets/nomiss/lang/en_US.lang').write_text(''.join(f'{key}={value}\n' for key, value in translations.items()), encoding='utf-8')
     shutil.copytree(ROOT / 'backports/templates/legacy', java, dirs_exist_ok=True)
     for path in java.rglob('*.java'):
-        text = path.read_text()
+        text = path.read_text(encoding='utf-8')
         if v < (1, 8, 2):
             text = text.replace('new Window(client)', 'new Window(client, client.width, client.height)')
             text = text.replace('client.result.type', 'client.result.hitResult')
@@ -27,8 +27,9 @@ def generate(mc, output):
             text = text.replace('client.player', 'client.field_3805')
             text = text.replace('Item.REGISTRY.getIdentifier(', 'Item.REGISTRY.getId(')
             text = text.replace('.drawWithShadow(', '.method_956(')
-            text = text.replace('itemRenderer.renderInGui(choice.icon(), x, y)', 'itemRenderer.method_6920(textRenderer, client.getTextureManager(), choice.icon(), x, y)')
+            text = text.replace('itemRenderer.renderInGuiWithOverrides(choice.icon(), x, y)', 'itemRenderer.method_6920(textRenderer, client.getTextureManager(), choice.icon(), x, y)')
         if v < (1, 7):
+            text = text.replace('Items.DIAMOND_', 'Item.DIAMOND_')
             text = text.replace('new Window(client, client.width, client.height)', 'new Window(client.options, client.width, client.height)')
             text = text.replace(', "key.categories.nomiss")', ')')
             text = text.replace('key.getCode()', 'key.code')
@@ -46,11 +47,11 @@ def generate(mc, output):
                 text = text.replace('method = "handleBlockBreaking"', 'method = "method_2925"')
                 text = text.replace('private void nomiss$mine(boolean active, CallbackInfo ci)', 'private void nomiss$mine(int button, boolean active, CallbackInfo ci)')
                 text = text.replace('if (active && LegacyClient.blockMining())', 'if (button == 0 && active && LegacyClient.blockMining())')
-        path.write_text(text)
+        path.write_text(text, encoding='utf-8')
     mixins = {'required': True, 'package': 'com.nomiss.legacy.mixin', 'compatibilityLevel': 'JAVA_17',
               'client': ['ClientMixin', 'OptionsMixin', 'HudMixin', 'SettingsMixin', 'NbtCompoundAccessor', 'NbtListAccessor', 'MinecraftAccessor'],
               'injectors': {'defaultRequire': 1}}
-    (resources / 'nomiss.legacy.mixins.json').write_text(json.dumps(mixins, indent=2) + '\n')
+    (resources / 'nomiss.legacy.mixins.json').write_text(json.dumps(mixins, indent=2) + '\n', encoding='utf-8')
 
 
 if __name__ == '__main__':

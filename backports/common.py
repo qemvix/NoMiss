@@ -19,7 +19,7 @@ def copy_shared(target, output):
     shutil.copytree(ROOT / "src/main/java", java, dirs_exist_ok=True)
     shutil.copytree(ROOT / "src/main/resources/assets", resources / "assets", dirs_exist_ok=True)
     for path in java.rglob("*.java"):
-        text = path.read_text().replace("profiles.getFirst()", "profiles.get(0)")
+        text = path.read_text(encoding='utf-8').replace("profiles.getFirst()", "profiles.get(0)")
         # Minecraft 1.19 uses Gson 2.8.9; core configuration must also compile against it.
         text = text.replace("profiles.isEmpty()", "profiles.size() == 0")
         if path.name == "NoMissProfile.java":
@@ -29,12 +29,12 @@ def copy_shared(target, output):
         if path.name == "NoMissConfig.java":
             text = text.replace('modpack.setSlot(3, WeaponSelection.category("axes"))',
                                 f'modpack.setSlot({len(target.categories)}, WeaponSelection.category("axes"))')
-        path.write_text(text)
+        path.write_text(text, encoding='utf-8')
     return java, resources
 
 
 def metadata(target, resources, *, legacy=False):
-    data = json.loads((ROOT / "src/main/resources/fabric.mod.json").read_text())
+    data = json.loads((ROOT / "src/main/resources/fabric.mod.json").read_text(encoding='utf-8'))
     data["version"] = "1.2"
     data["depends"] = {"fabricloader": ">=0.20.1" if legacy else ">=0.19.5",
                        "minecraft": target.minecraft, "java": f">={target.java}"}
@@ -45,7 +45,7 @@ def metadata(target, resources, *, legacy=False):
         data["mixins"] = ["nomiss.legacy.mixins.json"]
     else:
         data["suggests"]["modmenu"] = f">={target.modmenu}"
-        mixins = json.loads((ROOT / "src/client/resources/nomiss.client.mixins.json").read_text())
+        mixins = json.loads((ROOT / "src/client/resources/nomiss.client.mixins.json").read_text(encoding='utf-8'))
         mixins["compatibilityLevel"] = f"JAVA_{target.java}"
-        (resources / "nomiss.client.mixins.json").write_text(json.dumps(mixins, indent=2) + "\n")
-    (resources / "fabric.mod.json").write_text(json.dumps(data, indent=2) + "\n")
+        (resources / "nomiss.client.mixins.json").write_text(json.dumps(mixins, indent=2) + "\n", encoding='utf-8')
+    (resources / "fabric.mod.json").write_text(json.dumps(data, indent=2) + "\n", encoding='utf-8')

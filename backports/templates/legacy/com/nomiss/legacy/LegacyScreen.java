@@ -3,7 +3,7 @@ package com.nomiss.legacy;
 import com.nomiss.config.*;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.options.KeyBinding;
+import net.minecraft.client.option.KeyBinding;
 import net.minecraft.item.*;
 import org.lwjgl.input.Keyboard;
 import java.util.*;
@@ -23,7 +23,7 @@ public class LegacyScreen extends Screen {
     private void row(String label, Runnable action) { rows.add(new Row(label, action, null)); }
     private void change(Runnable action) { action.run(); feedback = LegacyClient.save() ? "" : "Could not save settings"; rebuild(); }
     private void rebuild() { buttons.clear(); init(); }
-    @Override protected void init() {
+    @Override public void init() {
         rows.clear(); actions.clear(); int left = Math.max(4, (width - 420) / 2), w = Math.min(420, width - 8);
         for (int i = 0; i < 4; i++) {
             final int selected = i;
@@ -139,14 +139,14 @@ public class LegacyScreen extends Screen {
     private static class Confirmation extends Child {
         private final String title; private final Runnable accept;
         Confirmation(Screen parent, String title, Runnable accept) { super(parent); this.title=title; this.accept=accept; }
-        @Override protected void init() { buttons.add(new ButtonWidget(1,width/2-102,height/2,100,20,"Confirm")); buttons.add(new ButtonWidget(2,width/2+2,height/2,100,20,"Cancel")); }
+        @Override public void init() { buttons.add(new ButtonWidget(1,width/2-102,height/2,100,20,"Confirm")); buttons.add(new ButtonWidget(2,width/2+2,height/2,100,20,"Cancel")); }
         @Override protected void buttonClicked(ButtonWidget button) { if (button.id == 1) accept.run(); client.setScreen(parent); }
         @Override public void render(int x,int y,float delta) { super.render(x,y,delta); drawCenteredString(textRenderer,title,width/2,height/2-28,0xFFFFFF); }
     }
     private static class Prompt extends Child {
         private final String title; private String value, error=""; private final Consumer<String> accept;
         Prompt(Screen parent,String title,String initial,Consumer<String> accept) { super(parent); this.title=title; value=initial; this.accept=accept; }
-        @Override protected void init() { buttons.add(new ButtonWidget(1,width/2-102,height/2+20,100,20,"Save")); buttons.add(new ButtonWidget(2,width/2+2,height/2+20,100,20,"Cancel")); }
+        @Override public void init() { buttons.add(new ButtonWidget(1,width/2-102,height/2+20,100,20,"Save")); buttons.add(new ButtonWidget(2,width/2+2,height/2+20,100,20,"Cancel")); }
         @Override protected void buttonClicked(ButtonWidget button) { if (button.id == 2) client.setScreen(parent); else submit(); }
         private void submit() { try { accept.accept(value); client.setScreen(parent); } catch (IllegalArgumentException e) { error=e.getMessage(); } }
         @Override protected void keyPressed(char typed,int code) {
@@ -164,7 +164,7 @@ public class LegacyScreen extends Screen {
     private static class Rules extends Child {
         private final int slot;
         Rules(Screen parent,int slot) { super(parent); this.slot=slot; }
-        @Override protected void init() {
+        @Override public void init() {
             buttons.add(new ButtonWidget(1,width/2-150,60,300,20,"Select item/category"));
             buttons.add(new ButtonWidget(2,width/2-150,84,300,20,"Capture exact held item"));
             buttons.add(new ButtonWidget(3,width/2-150,108,300,20,"Block breaking: " + LegacyClient.config().selection(slot).blocks()));
@@ -192,14 +192,14 @@ public class LegacyScreen extends Screen {
         Picker(Screen parent,int slot) {
             super(parent); this.slot=slot;
             for (Object value : Item.REGISTRY) if (value instanceof Item item) {
-                var stack=new ItemStack(item); catalog.add(new Choice(WeaponSelection.item(LegacyMatcher.id(stack)),stack.getName(),stack));
+                var stack=new ItemStack(item); catalog.add(new Choice(WeaponSelection.item(LegacyMatcher.id(stack)),stack.getCustomName(),stack));
             }
             catalog.sort(Comparator.comparing(c -> c.name().toLowerCase(Locale.ROOT)));
             Item[] icons={Items.DIAMOND_SWORD,Items.DIAMOND_AXE,Items.DIAMOND_PICKAXE,Items.DIAMOND_SHOVEL,Items.DIAMOND_HOE};
             String[] groups={"swords","axes","pickaxes","shovels","hoes"};
             for (int i=groups.length-1;i>=0;i--) catalog.add(0,new Choice(WeaponSelection.category(groups[i]),"All "+groups[i],new ItemStack(icons[i])));
         }
-        @Override protected void init() {
+        @Override public void init() {
             buttons.clear(); capacity=Math.max(1,(height-118)/24);
             String needle=query.toLowerCase(Locale.ROOT);
             visible=catalog.stream().filter(c -> c.name().toLowerCase(Locale.ROOT).contains(needle)||c.selection().key().contains(needle)).toList();
@@ -227,10 +227,10 @@ public class LegacyScreen extends Screen {
         }
         @Override public void render(int mouseX,int mouseY,float delta) {
             super.render(mouseX,mouseY,delta); drawCenteredString(textRenderer,"Select item/category | Weapon "+(slot+1),width/2,10,0xFFFFFF);
-            fill(width/2-150,28,width/2+150,48,0xFF202020); drawString(textRenderer,"Search: "+query+"_",width/2-146,34,0xFFFFFF);
+            fill(width/2-150,28,width/2+150,48,0xFF202020); drawWithShadow(textRenderer,"Search: "+query+"_",width/2-146,34,0xFFFFFF);
             for (int i=page*capacity;i<Math.min(visible.size(),(page+1)*capacity);i++) {
                 var choice=visible.get(i); int x=width/2-148,y=60+(i%capacity)*24;
-                itemRenderer.renderInGui(choice.icon(), x, y);
+                itemRenderer.renderInGuiWithOverrides(choice.icon(), x, y);
             }
             if (!error.isEmpty()) drawCenteredString(textRenderer,error,width/2,height-62,0xFF8080);
         }

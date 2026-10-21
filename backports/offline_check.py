@@ -26,8 +26,8 @@ def dependency(cache, name, url):
             if error.code != 404: raise
             value = urllib.request.urlopen(url + '.sha1', timeout=30).read().decode().split()[0]
             algorithm = 'sha1'
-        checksum.write_text(json.dumps({'algorithm': algorithm, 'value': value.lower()}))
-    reference = json.loads(checksum.read_text())
+        checksum.write_text(json.dumps({'algorithm': algorithm, 'value': value.lower()}), encoding='utf-8')
+    reference = json.loads(checksum.read_text(encoding='utf-8'))
     if not path.exists():
         path.write_bytes(urllib.request.urlopen(url, timeout=30).read())
     if hashlib.new(reference['algorithm'], path.read_bytes()).hexdigest() != reference['value']:
@@ -64,7 +64,7 @@ def check(java_home, cache):
                         'minecraft_api_compiled': False, 'game_launched': False})
         print(f'{mc}: shared configuration tests passed; game API build pending', flush=True)
     subprocess.run([str(java_home / 'bin/java'), str(ROOT / 'backports/tests/ParseJava.java'), *all_sources], check=True)
-    (output / 'results.json').write_text(json.dumps(results, indent=2) + '\n')
+    (output / 'results.json').write_text(json.dumps(results, indent=2) + '\n', encoding='utf-8')
     print(f'Checked {len(results)} generated configurations. These are not installable mod build results.')
 
 

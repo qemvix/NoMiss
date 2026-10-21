@@ -28,7 +28,7 @@ public final class LegacyMatcher {
         return LegacyClient.config().resolve(id(stack), categories(stack), exact ? fingerprint(stack).orElse("") : "");
     }
     public static Optional<WeaponSelection> exact(ItemStack stack) {
-        String name = stack.getName().replaceAll("[\\p{Cntrl}]", " ");
+        String name = stack.getCustomName().replaceAll("[\\p{Cntrl}]", " ");
         return fingerprint(stack).map(value -> WeaponSelection.exact(id(stack), value, name.substring(0, Math.min(128, name.length()))));
     }
     public static Optional<String> fingerprint(ItemStack stack) {

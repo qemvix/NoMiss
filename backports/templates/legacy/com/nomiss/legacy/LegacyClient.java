@@ -5,8 +5,8 @@ import com.nomiss.legacy.mixin.MinecraftAccessor;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.options.GameOptions;
-import net.minecraft.client.options.KeyBinding;
+import net.minecraft.client.option.GameOptions;
+import net.minecraft.client.option.KeyBinding;
 import net.minecraft.item.ItemStack;
 import java.io.IOException;
 import java.nio.file.*;
@@ -80,7 +80,7 @@ public final class LegacyClient implements ClientModInitializer {
         var candidate = exact ? LegacyMatcher.exact(stack) : Optional.of(WeaponSelection.item(LegacyMatcher.id(stack)));
         if (candidate.isEmpty()) return "Could not capture this item";
         return switch (config.addSelection(candidate.get())) {
-            case ADDED -> save() ? "Added " + stack.getName() : "Could not save settings";
+            case ADDED -> save() ? "Added " + stack.getCustomName() : "Could not save settings";
             case ALREADY_SELECTED -> "Already selected";
             case FULL -> "All 20 slots are occupied";
             case INVALID -> "Invalid selection";

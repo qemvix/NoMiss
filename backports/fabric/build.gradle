@@ -6,7 +6,8 @@ plugins {
 }
 
 def mc = providers.gradleProperty('minecraft_version').get()
-def matrixText = providers.exec { commandLine 'python3', '../targets.py' }.standardOutput.asText.get()
+def python = providers.gradleProperty('python_executable').getOrElse(System.getProperty('os.name').toLowerCase().contains('windows') ? 'py' : 'python3')
+def matrixText = providers.exec { commandLine python, '../targets.py' }.standardOutput.asText.get()
 def target = new JsonSlurper().parseText(matrixText)[mc]
 if (target == null || target.loader != 'fabric') throw new GradleException("Unknown Fabric target: ${mc}")
 def unmapped = mc.startsWith('26.')
@@ -44,7 +45,7 @@ tasks.register('generatePort', Exec) {
     inputs.files('../generate_fabric.py', '../common.py', '../targets.py')
     inputs.property('minecraftVersion', mc)
     outputs.dir(generated)
-    commandLine 'python3', '../generate_fabric.py', mc, generated.get().asFile.absolutePath
+    commandLine python, '../generate_fabric.py', mc, generated.get().asFile.absolutePath
 }
 sourceSets {
     main {
