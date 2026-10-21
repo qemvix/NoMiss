@@ -36,6 +36,7 @@ Run shared-rule tests and Java syntax checks for the complete requested matrix:
 
 ```sh
 python3 backports/offline_check.py --java-home "$JAVA_HOME"
+python3 -m unittest discover -s backports/tests -p 'test_*.py' -v
 ```
 
 This command compiles only Minecraft-independent configuration/rules and parses the client sources. It **does not** validate Minecraft APIs, mappings, mixins, loader startup, or gameplay. First use downloads Gson and JUnit from Maven Central, verifying their published checksums. Results live under `backports/build/offline-check/`.

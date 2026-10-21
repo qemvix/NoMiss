@@ -8,7 +8,7 @@ from pathlib import Path
 import struct
 import zipfile
 
-from targets import TARGETS
+from targets import TARGETS, version
 
 
 class Reader:
@@ -149,7 +149,10 @@ def audit(path, mc, minecraft_jar):
                 nested.append(json.loads(bundle.read('fabric.mod.json')))
         if target.loader == 'fabric':
             ids = {item['id'] for item in nested}
-            assert len(ids) >= 4, 'Required Fabric API modules not bundled'
+            expected = {'fabric-api-base', 'fabric-lifecycle-events-v1',
+                        'fabric-key-mapping-api-v1' if mc.startswith('26.') else 'fabric-key-binding-api-v1',
+                        'fabric-resource-loader-v1' if version(mc) >= (1, 21, 9) else 'fabric-resource-loader-v0'}
+            assert expected <= ids, 'Required Fabric API modules not bundled'
             available = ids | {'minecraft', 'java', 'fabricloader', 'fabric-loader'}
             for item in nested:
                 assert set(item.get('depends', {})) <= available, f'Unbundled dependency in {item["id"]}'
